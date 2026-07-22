@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Flow Field · Source Engine</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; font-family: 'Segoe UI', system-ui, monospace; }
+canvas { display: block; position: fixed; top:0; left:0; }
+
+#panel {
+  position: fixed; top: 12px; right: 12px;
+  width: 290px; max-height: calc(100vh - 24px);
+  background: rgba(12,12,18,0.94);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  color: #e0e0e0;
+  font-size: 11.5px;
+  z-index: 100;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#panel-header {
+  padding: 10px 14px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+#panel-header h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; opacity: 0.9; }
+#togglePanel {
+  background: none; border: none; color: #aaa; cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 2px;
+}
+#togglePanel:hover { color: #fff; }
+
+#tabs {
+  display: flex; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.tab-btn {
+  flex: 1; padding: 7px 4px; background: none; border: none;
+  color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; cursor: pointer; transition: color 0.15s;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn:hover { color: rgba(255,255,255,0.7); }
+.tab-btn.active { color: #fff; border-bottom-color: #6c9ed9; }
+
+#panel-body { overflow-y: auto; flex: 1; padding: 12px 14px; }
+#panel-body::-webkit-scrollbar { width: 4px; }
+#panel-body::-webkit-scrollbar-track { background: transparent; }
+#panel-body::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.group { margin-bottom: 14px; }
+.group-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #6c9ed9; margin-bottom: 8px;
+}
+.row { margin-bottom: 8px; }
+.row label { display: block; font-size: 10.5px; color: rgba(255,255,255,0.6); margin-bottom: 3px; }
+.row-val { display: flex; align-items: center; gap: 6px; }
+.row-val span { font-size: 10px; color: #8ad; min-width: 32px; text-align: right; flex-shrink: 0; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px; background: #2a2a3a; border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px;
+  border-radius: 50%; background: #6c9ed9; cursor: pointer;
+  box-shadow: 0 0 4px rgba(108,158,217,0.5);
+}
+input[type="range"]:hover::-webkit-slider-thumb { background: #9bbfe8; }
+
+input[type="text"], textarea, select {
+  width: 100%; background: #1a1a28; color: #e0e0e0;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+  padding: 6px 8px; font-size: 11.5px; outline: none;
+  font-family: inherit; resize: vertical;
+}
+input[type="text"]:focus, textarea:focus, select:focus { border-color: #6c9ed9; }
+select { cursor: pointer; }
+select option { background: #1a1a28; }
+
+input[type="color"] {
+  -webkit-appearance: none; appearance: none;
+  width: 32px; height: 24px; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px; cursor: pointer; padding: 1px; background: none;
+}
+
+.btn-row { display: flex; gap: 6px; margin-top: 4px; }
+button.ctrl {
+  flex: 1; padding: 6px 8px; background: #1a1a28; color: #ccc;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+  font-size: 10.5px; cursor: pointer; transition: all 0.15s;
+}
+button.ctrl:hover { background: #252535; border-color: #6c9ed9; color: #fff; }
+button.ctrl.active { background: #1e3a5c; border-color: #6c9ed9; color: #9bbfe8; }
+button.ctrl.danger { background: #5c1e1e; border-color: #d96c6c; color: #e89b9b; }
+button.ctrl.danger:hover { background: #7a2828; border-color: #e88a8a; color: #fff; }
+button.ctrl.success { background: #1e4b3a; border-color: #6cd99a; color: #9be8bd; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.toggle-label { font-size: 10.5px; color: rgba(255,255,255,0.6); }
+.toggle {
+  width: 34px; height: 18px; background: #2a2a3a; border-radius: 9px;
+  position: relative; cursor: pointer; transition: background 0.2s; border: none; flex-shrink: 0;
+}
+.toggle::after {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 12px; height: 12px; border-radius: 50%; background: #666; transition: all 0.2s;
+}
+.toggle.on { background: #1e3a5c; }
+.toggle.on::after { left: 19px; background: #6c9ed9; }
+
+.color-pair { display: flex; align-items: center; gap: 6px; }
+.color-pair label { font-size: 10px; color: rgba(255,255,255,0.5); }
+
+hr.divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 10px 0; }
+
+.rec-row {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.rec-row .rec-btn {
+  flex: 0 0 auto; padding: 5px 10px; border-radius: 6px;
+  font-size: 10.5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.12);
+  transition: all 0.15s; font-weight: 600;
+}
+.rec-row .rec-btn.start {
+  background: #5c1e1e; border-color: #d96c6c; color: #e89b9b;
+}
+.rec-row .rec-btn.start:hover { background: #7a2828; color: #fff; }
+.rec-row .rec-btn.stop {
+  background: #3a3a3a; border-color: #888; color: #ccc;
+}
+.rec-row .rec-btn.stop:hover { background: #4a4a4a; }
+.rec-row .rec-timer { font-size: 12px; color: #d96c6c; font-variant-numeric: tabular-nums; letter-spacing: 0.05em; min-width: 48px; }
+
+#panel-footer {
+  padding: 8px 14px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 9.5px; color: rgba(255,255,255,0.25);
+  text-align: center; flex-shrink: 0;
+}
+
+#hud {
+  position: fixed; bottom: 12px; left: 12px;
+  background: rgba(12,12,18,0.85); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 4px 10px; font-size: 11px; color: rgba(255,255,255,0.35);
+  pointer-events: none; z-index: 100; backdrop-filter: blur(8px);
+}
+
+#panel.collapsed #tabs,
+#panel.collapsed #panel-body,
+#panel.collapsed #panel-footer { display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas1"></canvas>
+
+<div id="panel">
+  <div id="panel-header">
+    <h3>&#x1f300; FLOW FIELD · ENGINE</h3>
+    <button id="togglePanel" title="Colapsar panel">&#x25b2;</button>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="tab-source">ORÍGEN</button>
+    <button class="tab-btn" data-tab="tab-txt-p">PARTÍCULAS</button>
+    <button class="tab-btn" data-tab="tab-bg-p">P.FONDO</button>
+    <button class="tab-btn" data-tab="tab-fx">EFECTOS</button>
+  </div>
+
+  <div id="panel-body">
+
+    <!-- TAB ORÍGEN -->
+    <div class="tab-pane active" id="tab-source">
+      <div class="group">
+        <div class="group-title">Modo de Origen</div>
+        <div class="row">
+          <div class="btn-row">
+            <button class="ctrl active" id="srcModeText">Texto</button>
+            <button class="ctrl" id="srcModeImg">Imagen</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="textSourceControls">
+        <div class="group">
+          <div class="group-title">Contenido de Texto</div>
+          <div class="row">
+            <label>Texto</label>
+            <textarea id="textContent" rows="2" style="font-size:13px; font-weight:700; letter-spacing:0.05em;">POP</textarea>
+          </div>
+          <div class="row">
+            <label>Fuente</label>
+            <select id="fontFamily">
+              <option value="Arial Black, Arial, sans-serif">Arial Black</option>
+              <option value="Impact, Haettenschweiler, sans-serif">Impact</option>
+              <option value="'Anton', Impact, sans-serif">Anton (Google)</option>
+              <option value="'Bebas Neue', Impact, sans-serif">Bebas Neue (Google)</option>
+              <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+              <option value="'Courier New', Courier, monospace">Courier New</option>
+              <option value="'Brush Script MT', cursive">Brush Script</option>
+              <option value="custom">&#x21b3; Nombre manual&#x2026;</option>
+            </select>
+          </div>
+          <div class="row" id="customFontRow" style="display:none;">
+            <label>Nombre exacto de fuente</label>
+            <input type="text" id="customFontInput" placeholder="ej: Oswald, Raleway&#x2026;"/>
+          </div>
+          <div class="row">
+            <label>Peso</label>
+            <select id="fontWeight">
+              <option value="400">Regular 400</option>
+              <option value="700">Bold 700</option>
+              <option value="900" selected>Black 900</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>Tamaño <span id="fontSizeVal" class="badge">280</span></label>
+            <div class="row-val">
+              <input type="range" id="fontSize" min="40" max="600" step="5" value="280">
+            </div>
+          </div>
+          <div class="row">
+            <label>Espaciado letras <span id="letterSpacingVal" class="badge">0</span></label>
+            <div class="row-val">
+              <input type="range" id="letterSpacing" min="-20" max="80" step="1" value="0">
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-title">Color del texto</div>
+          <div class="row">
+            <div class="btn-row">
+              <button class="ctrl active" data-cmode="gradient">Gradiente</button>
+              <button class="ctrl" data-cmode="solid">Sólido</button>
+            </div>
+          </div>
+          <div id="colorSolidRow" class="row" style="display:none;">
+            <label>Color único</label>
+            <div class="color-pair">
+              <input type="color" id="solidColor" value="#ffffff">
+              <label>del texto</label>
+            </div>
+          </div>
+          <div id="colorGradRow" class="row">
+            <label>Paradas de gradiente</label>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+              <div class="color-pair">
+                <input type="color" id="grad0" value="#F67D31">
+                <label>0%</label>
+                <input type="color" id="grad1" value="#DE1A58">
+                <label>33%</label>
+              </div>
+              <div class="color-pair">
+                <input type="color" id="grad2" value="#8F0177">
+                <label>66%</label>
+                <input type="color" id="grad3" value="#1A05A2">
+                <label>100%</label>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <label>Dirección gradiente</label>
+            <div class="btn-row">
+              <button class="ctrl active" data-gdir="h">&#x2192; H</button>
+              <button class="ctrl" data-gdir="v">&#x2193; V</button>
+              <button class="ctrl" data-gdir="d">&#x2198; Diag</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="imageSourceControls" style="display:none;">
+        <div class="group">
+          <div class="group-title">Imagen de Origen</div>
+          <div class="row">
+            <label>Cargar imagen de origen</label>
+            <input type="file" id="srcImageFile" accept="image/*" style="font-size:10px; color:#aaa; cursor:pointer;"/>
+          </div>
+          <div class="row">
+            <label>Opacidad de imagen <span id="bgImgOpacVal" class="badge">0.8</span></label>
+            <div class="row-val">
+              <input type="range" id="bgImgOpac" min="0" max="1" step="0.05" value="0.8">
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Mostrar imagen original de fondo</span>
+            <button class="toggle" id="showBgImage"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Forma / M&#xE1;scara</div>
+        <div class="row">
+          <label>Sangrado de borde (bleed) <span id="bleedVal" class="badge">0</span> px</label>
+          <div class="row-val">
+            <input type="range" id="bleedRadius" min="0" max="60" step="1" value="0">
+          </div>
+        </div>
+        <div class="row">
+          <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:2px;">
+            Expande la zona activa del origen. &Uacute;til en textos o siluetas PNG transparentes.
+          </label>
+        </div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="ctrl" id="applyBtn" style="background:#1e3a5c; border-color:#6c9ed9; color:#9bbfe8;">
+            &#x21bb; Aplicar cambios
+          </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Guardar</div>
+        <div class="btn-row">
+          <button class="ctrl success" id="exportHtmlBtn">
+            &#x1f4e5; Exportar HTML Standalone
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB PARTÍCULAS -->
+    <div class="tab-pane" id="tab-txt-p">
+      <div class="group">
+        <div class="group-title">Cantidad y velocidad</div>
+        <div class="row">
+          <label>Cantidad <span id="txtCountVal" class="badge">2000</span></label>
+          <div class="row-val">
+            <input type="range" id="txtCount" min="100" max="8000" step="100" value="2000">
+          </div>
+        </div>
+        <div class="row">
+          <label>Velocidad m&iacute;n. <span id="txtSpeedMinVal" class="badge">1</span></label>
+          <div class="row-val">
+            <input type="range" id="txtSpeedMin" min="0.2" max="5" step="0.1" value="1">
+          </div>
+        </div>
+        <div class="row">
+          <label>Velocidad m&aacute;x. <span id="txtSpeedMaxVal" class="badge">3</span></label>
+          <div class="row-val">
+            <input type="range" id="txtSpeedMax" min="0.5" max="10" step="0.1" value="3">
+          </div>
+        </div>
+        <div class="row">
+          <label>Boost en zona origen &#x00d7;<span id="txtBoostVal" class="badge">3</span></label>
+          <div class="row-val">
+            <input type="range" id="txtBoost" min="1" max="8" step="0.5" value="3">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Estela</div>
+        <div class="row">
+          <label>Long. m&iacute;n. <span id="txtTrailMinVal" class="badge">20</span></label>
+          <div class="row-val">
+            <input type="range" id="txtTrailMin" min="2" max="200" step="2" value="20">
+          </div>
+        </div>
+        <div class="row">
+          <label>Long. m&aacute;x. <span id="txtTrailMaxVal" class="badge">150</span></label>
+          <div class="row-val">
+            <input type="range" id="txtTrailMax" min="10" max="500" step="5" value="150">
+          </div>
+        </div>
+        <div class="row">
+          <label>Grosor l&iacute;nea <span id="txtLineVal" class="badge">1.0</span></label>
+          <div class="row-val">
+            <input type="range" id="txtLine" min="0.2" max="4" step="0.1" value="1.0">
+          </div>
+        </div>
+        <div class="row">
+          <label>Opacidad <span id="txtOpacVal" class="badge">1.0</span></label>
+          <div class="row-val">
+            <input type="range" id="txtOpac" min="0.05" max="1" step="0.05" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Color de part&iacute;culas</div>
+        <div class="btn-row">
+          <button class="ctrl active" data-txtcolor="image">Origen</button>
+          <button class="ctrl" data-txtcolor="solid">S&oacute;lido</button>
+          <button class="ctrl" data-txtcolor="white">Blanco</button>
+        </div>
+        <div id="txtSolidColorRow" class="row" style="display:none; margin-top:6px;">
+          <div class="color-pair">
+            <input type="color" id="txtSolidColor" value="#ff6600">
+            <label>Color part&iacute;cula</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Flujo (Perlin)</div>
+        <div class="row">
+          <label>Escala ruido <span id="txtNoiseVal" class="badge">500</span></label>
+          <div class="row-val">
+            <input type="range" id="txtNoise" min="50" max="2000" step="10" value="500">
+          </div>
+        </div>
+        <div class="row">
+          <label>Multiplicador &aacute;ngulo &#x00d7;&#x03c0; <span id="txtAngleVal" class="badge">4</span></label>
+          <div class="row-val">
+            <input type="range" id="txtAngle" min="0.5" max="12" step="0.25" value="4">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB P.FONDO -->
+    <div class="tab-pane" id="tab-bg-p">
+      <div class="group">
+        <div class="group-title">Activar</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Part&iacute;culas de fondo</span>
+          <button class="toggle on" id="bgEnabled"></button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Cantidad y velocidad</div>
+        <div class="row">
+          <label>Cantidad <span id="bgCountVal" class="badge">400</span></label>
+          <div class="row-val">
+            <input type="range" id="bgCount" min="0" max="3000" step="50" value="400">
+          </div>
+        </div>
+        <div class="row">
+          <label>Velocidad m&iacute;n. <span id="bgSpeedMinVal" class="badge">0.5</span></label>
+          <div class="row-val">
+            <input type="range" id="bgSpeedMin" min="0.1" max="5" step="0.1" value="0.5">
+          </div>
+        </div>
+        <div class="row">
+          <label>Velocidad m&aacute;x. <span id="bgSpeedMaxVal" class="badge">1.5</span></label>
+          <div class="row-val">
+            <input type="range" id="bgSpeedMax" min="0.2" max="8" step="0.1" value="1.5">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Estela</div>
+        <div class="row">
+          <label>Long. m&iacute;n. <span id="bgTrailMinVal" class="badge">10</span></label>
+          <div class="row-val">
+            <input type="range" id="bgTrailMin" min="2" max="100" step="2" value="10">
+          </div>
+        </div>
+        <div class="row">
+          <label>Long. m&aacute;x. <span id="bgTrailMaxVal" class="badge">60</span></label>
+          <div class="row-val">
+            <input type="range" id="bgTrailMax" min="5" max="300" step="5" value="60">
+          </div>
+        </div>
+        <div class="row">
+          <label>Grosor l&iacute;nea <span id="bgLineVal" class="badge">0.5</span></label>
+          <div class="row-val">
+            <input type="range" id="bgLine" min="0.2" max="4" step="0.1" value="0.5">
+          </div>
+        </div>
+        <div class="row">
+          <label>Opacidad <span id="bgOpacVal" class="badge">0.4</span></label>
+          <div class="row-val">
+            <input type="range" id="bgOpac" min="0.02" max="1" step="0.02" value="0.4">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Color</div>
+        <div class="color-pair">
+          <input type="color" id="bgParticleColor" value="#4466aa">
+          <label>Color part&iacute;culas fondo</label>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Comportamiento</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Evitar zona de origen</span>
+          <button class="toggle on" id="bgAvoidText"></button>
+        </div>
+        <div class="row" style="margin-top:6px;">
+          <label>Escala ruido <span id="bgNoiseVal" class="badge">800</span></label>
+          <div class="row-val">
+            <input type="range" id="bgNoise" min="50" max="3000" step="25" value="800">
+          </div>
+        </div>
+        <div class="row">
+          <label>Multiplicador &aacute;ngulo &#x00d7;&#x03c0; <span id="bgAngleVal" class="badge">2</span></label>
+          <div class="row-val">
+            <input type="range" id="bgAngle" min="0.5" max="12" step="0.25" value="2">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB EFECTOS -->
+    <div class="tab-pane" id="tab-fx">
+      <div class="group">
+        <div class="group-title">Fondo y persistencia</div>
+        <div class="row">
+          <div class="color-pair">
+            <input type="color" id="bgColor" value="#000000">
+            <label>Color de fondo</label>
+          </div>
+        </div>
+        <div class="row">
+          <label>Fade / persistencia estela <span id="fadeVal" class="badge">0.05</span></label>
+          <div class="row-val">
+            <input type="range" id="fadeAlpha" min="0.005" max="0.5" step="0.005" value="0.05">
+          </div>
+        </div>
+        <div class="row" style="font-size:9.5px; color:rgba(255,255,255,0.25);">
+          Bajo = estelas largas. Alto = desaparecen r&aacute;pido.
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Blend mode</div>
+        <div class="btn-row">
+          <button class="ctrl active" data-blend="source-over">Normal</button>
+          <button class="ctrl" data-blend="screen">Screen</button>
+        </div>
+        <div class="btn-row" style="margin-top:4px;">
+          <button class="ctrl" data-blend="overlay">Overlay</button>
+          <button class="ctrl" data-blend="color-dodge">Dodge</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Grabar video</div>
+        <div class="rec-row">
+          <button class="rec-btn start" id="recStart">&#x25cf; Grabar</button>
+          <button class="rec-btn stop" id="recStop" style="display:none;">&#x25a0; Detener</button>
+          <span class="rec-timer" id="recElapsed">00:00</span>
+        </div>
+        <div class="row" style="font-size:9.5px; color:rgba(255,255,255,0.25);">
+          Exporta a WebM (VP9/VP8). Se reinicia al cambiar origen.
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Debug</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Mostrar grilla de celdas</span>
+          <button class="toggle" id="debugToggle"></button>
+        </div>
+        <div class="toggle-row" style="margin-top:4px;">
+          <span class="toggle-label">Mostrar imagen fuente (origen)</span>
+          <button class="toggle" id="debugImgToggle"></button>
+        </div>
+        <hr class="divider">
+        <div class="row">
+          <label>Tama&ntilde;o celda (cell size) <span id="cellSizeVal" class="badge">5</span></label>
+          <div class="row-val">
+            <input type="range" id="cellSize" min="2" max="20" step="1" value="5">
+          </div>
+        </div>
+        <div class="row" style="font-size:9.5px; color:rgba(255,255,255,0.25);">
+          Afecta la resoluci&oacute;n del campo. Cambiar requiere reinicializar.
+        </div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="ctrl" id="reinitBtn">&#x21bb; Reinicializar campo</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="panel-footer">D = grilla debug &nbsp;|&nbsp; &#x21bb; Aplicar para regenerar origen</div>
+</div>
+
+<div id="hud">
+  <span id="fpsBadge">&mdash;</span> fps &nbsp;|&nbsp;
+  <span id="ptxtBadge">&mdash;</span> p.origen &nbsp;|&nbsp;
+  <span id="pbgBadge">&mdash;</span> p.fondo
+</div>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&display=swap">
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
