@@ -1,6 +1,10 @@
 import { S } from '../state.js';
+import { bus } from '../bus.js';
 import { createComputePipeline, createParticleBuffers } from '../gpu/compute.js';
-import { createTrailPipeline, createFadePipeline } from '../gpu/render.js';
+import {
+  createTrailPipeline, createShapePipeline, createFadePipeline, createDebugPipeline,
+  createShapeVertexBuffer, SHAPE_OFFSETS, SHAPE_COUNTS,
+} from '../gpu/render.js';
 
 const MAX_TRAIL = 64;
 
@@ -18,12 +22,17 @@ export class WebGPURenderer {
     this.bgParticles = [];
     this.computePipeline = null;
     this.trailPipeline = null;
+    this.shapePipeline = null;
     this.fadePipeline = null;
+    this.debugPipeline = null;
+    this.shapeVertexBuffer = null;
     this.txtUniformBuffer = null;
     this.bgUniformBuffer = null;
     this.renderUniformBuffer = null;
     this.fadeUniformBuffer = null;
+    this.debugUniformBuffer = null;
     this.cellsBuffer = null;
+    this.maskBuffer = null;
     this.txtParticleBuffer = null;
     this.txtTrailBuffer = null;
     this.bgParticleBuffer = null;
@@ -34,7 +43,11 @@ export class WebGPURenderer {
     this.bgBindGroup = null;
     this.txtTrailBindGroup = null;
     this.bgTrailBindGroup = null;
+    this.txtShapeBindGroup = null;
+    this.bgShapeBindGroup = null;
     this.fadeBindGroup = null;
+    this.debugBindGroup = null;
+    this._unsubscribe = null;
   }
 
   async init() {
@@ -62,7 +75,7 @@ export class WebGPURenderer {
     });
 
     this.renderUniformBuffer = this.device.createBuffer({
-      size: 64,
+      size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -71,8 +84,16 @@ export class WebGPURenderer {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
+    this.debugUniformBuffer = this.device.createBuffer({
+      size: 32,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
     this.trailPipeline = createTrailPipeline(this.device, this.format);
+    this.shapeVertexBuffer = createShapeVertexBuffer(this.device);
+    this.shapePipeline = createShapePipeline(this.device, this.format, this.shapeVertexBuffer);
     this.fadePipeline = createFadePipeline(this.device, this.format);
+    this.debugPipeline = createDebugPipeline(this.device, this.format);
 
     this.fadeBindGroup = this.device.createBindGroup({
       layout: this.fadePipeline.getBindGroupLayout(0),
@@ -84,6 +105,30 @@ export class WebGPURenderer {
     this._createFlowFieldTexture();
     this._createTextMaskTexture();
     this._createCellsBuffer();
+    this._createMaskBuffer();
+
+    this._unsubscribe = bus.on('state:change', (path) => {
+      if (path === 'S.fadeAlpha') return;
+      this._updateRenderUniforms();
+      if (path && (path.startsWith('S.txt.') || path.startsWith('S.bg.'))) {
+        this._refreshFlowTextures();
+      }
+    });
+  }
+
+  _createMaskBuffer() {
+    const ef = this.effect;
+    const arr = ef.textMask || [];
+    const count = Math.max(arr.length, 1);
+    const data = new Uint32Array(count);
+    for (let i = 0; i < arr.length; i++) {
+      data[i] = arr[i] ? 1 : 0;
+    }
+    this.maskBuffer = this.device.createBuffer({
+      size: data.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.maskBuffer, 0, data);
   }
 
   _createCellsBuffer() {
@@ -105,45 +150,77 @@ export class WebGPURenderer {
 
   _createFlowFieldTexture() {
     const ef = this.effect;
-    const data = new Uint8Array(ef.rows * ef.columns * 2);
 
-    for (let row = 0; row < ef.rows; row++) {
-      for (let col = 0; col < ef.columns; col++) {
-        const idx = row * ef.columns + col;
-        const angle = ef.flowField[idx] ? ef.flowField[idx].angle : 0;
-        const inText = ef.flowField[idx] ? (ef.flowField[idx].inText ? 1 : 0) : 0;
-        data[idx * 2]     = ((angle / (Math.PI * 2)) + 0.5) * 255;
-        data[idx * 2 + 1] = inText * 255;
+    function buildFlowTexture(w, h, flowData) {
+      const data = new Uint8Array(w * h * 2);
+      for (let row = 0; row < h; row++) {
+        for (let col = 0; col < w; col++) {
+          const idx = row * w + col;
+          const cell = flowData[idx];
+          const angle = cell ? cell.angle : 0;
+          const inText = cell && cell.inText ? 1 : 0;
+          data[idx * 2]     = ((angle / (Math.PI * 2)) + 0.5) * 255;
+          data[idx * 2 + 1] = inText * 255;
+        }
       }
+      const desc = {
+        size: [w, h, 1],
+        format: 'rg8unorm',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      };
+      const tex = this.device.createTexture(desc);
+      this.device.queue.writeTexture(
+        { texture: tex },
+        data,
+        { bytesPerRow: w * 2 },
+        [w, h, 1]
+      );
+      return tex;
     }
 
-    const textureDesc = {
-      size: [ef.columns, ef.rows, 1],
-      format: 'rg8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-    };
-    this.txtFlowTexture = this.device.createTexture(textureDesc);
+    if (this.txtFlowTexture) this.txtFlowTexture.destroy();
+    if (this.bgFlowTexture) this.bgFlowTexture.destroy();
+
+    this.txtFlowTexture = buildFlowTexture.call(this, ef.columns, ef.rows, ef.flowField);
+    this.bgFlowTexture = buildFlowTexture.call(this, ef.columns, ef.rows, ef.bgFlowField);
+  }
+
+  _refreshFlowTextures() {
+    const ef = this.effect;
+    const w = ef.columns, h = ef.rows;
+    const txtData = new Uint8Array(w * h * 2);
+    for (let row = 0; row < h; row++) {
+      for (let col = 0; col < w; col++) {
+        const idx = row * w + col;
+        const cell = ef.flowField[idx];
+        const angle = cell ? cell.angle : 0;
+        const inText = cell && cell.inText ? 1 : 0;
+        txtData[idx * 2]     = ((angle / (Math.PI * 2)) + 0.5) * 255;
+        txtData[idx * 2 + 1] = inText * 255;
+      }
+    }
     this.device.queue.writeTexture(
       { texture: this.txtFlowTexture },
-      data,
-      { bytesPerRow: ef.columns * 2 },
-      [ef.columns, ef.rows, 1]
+      txtData,
+      { bytesPerRow: w * 2 },
+      [w, h, 1]
     );
 
-    for (let row = 0; row < ef.rows; row++) {
-      for (let col = 0; col < ef.columns; col++) {
-        const idx = row * ef.columns + col;
-        const angle = ef.bgFlowField[idx] ? ef.bgFlowField[idx].angle : 0;
-        data[idx * 2]     = ((angle / (Math.PI * 2)) + 0.5) * 255;
-        data[idx * 2 + 1] = 0;
+    const bgData = new Uint8Array(w * h * 2);
+    for (let row = 0; row < h; row++) {
+      for (let col = 0; col < w; col++) {
+        const idx = row * w + col;
+        const cell = ef.bgFlowField[idx];
+        const angle = cell ? cell.angle : 0;
+        bgData[idx * 2]     = ((angle / (Math.PI * 2)) + 0.5) * 255;
+        bgData[idx * 2 + 1] = 0;
       }
     }
-    this.bgFlowTexture = this.device.createTexture(textureDesc);
     this.device.queue.writeTexture(
       { texture: this.bgFlowTexture },
-      data,
-      { bytesPerRow: ef.columns * 2 },
-      [ef.columns, ef.rows, 1]
+      bgData,
+      { bytesPerRow: w * 2 },
+      [w, h, 1]
     );
   }
 
@@ -221,7 +298,17 @@ export class WebGPURenderer {
     });
   }
 
-  _makeTrailBindGroup(particleBuffer, trailBuffer) {
+  _makeTrailBindGroup(particleBuffer, trailBuffer, shapeOnly) {
+    if (shapeOnly) {
+      return this.device.createBindGroup({
+        layout: this.shapePipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.renderUniformBuffer } },
+          { binding: 1, resource: { buffer: particleBuffer } },
+          { binding: 2, resource: { buffer: trailBuffer } },
+        ],
+      });
+    }
     return this.device.createBindGroup({
       layout: this.trailPipeline.getBindGroupLayout(0),
       entries: [
@@ -232,9 +319,20 @@ export class WebGPURenderer {
     });
   }
 
+  _makeDebugBindGroup() {
+    if (!this.debugPipeline) return null;
+    return this.device.createBindGroup({
+      layout: this.debugPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.debugUniformBuffer } },
+        { binding: 1, resource: { buffer: this.maskBuffer } },
+      ],
+    });
+  }
+
   _updateRenderUniforms() {
     const ef = this.effect;
-    const data = new ArrayBuffer(64);
+    const data = new ArrayBuffer(80);
     const f32 = new Float32Array(data);
     const u32 = new Uint32Array(data);
 
@@ -249,6 +347,7 @@ export class WebGPURenderer {
     f32[8] = S.bg.shapeSize;
     u32[9] = MAX_TRAIL;
     u32[10] = 0; // shapeMode
+    u32[11] = 0; // shapeFirstVertex
 
     this.device.queue.writeBuffer(this.renderUniformBuffer, 0, data);
   }
@@ -271,7 +370,8 @@ export class WebGPURenderer {
     this.txtTrailBuffer = trail;
     this.txtParticleCount = count;
     this.txtBindGroup = this._makeBindGroup(this.txtUniformBuffer, particles, trail);
-    this.txtTrailBindGroup = this._makeTrailBindGroup(particles, trail);
+    this.txtTrailBindGroup = this._makeTrailBindGroup(particles, trail, false);
+    this.txtShapeBindGroup = this._makeTrailBindGroup(particles, trail, true);
   }
 
   spawnBg() {
@@ -285,32 +385,12 @@ export class WebGPURenderer {
     this.bgTrailBuffer = trail;
     this.bgParticleCount = count;
     this.bgBindGroup = this._makeBindGroup(this.bgUniformBuffer, particles, trail);
-    this.bgTrailBindGroup = this._makeTrailBindGroup(particles, trail);
+    this.bgTrailBindGroup = this._makeTrailBindGroup(particles, trail, false);
+    this.bgShapeBindGroup = this._makeTrailBindGroup(particles, trail, true);
   }
 
   respawnText() { this.spawnText(); }
   respawnBg()   { this.spawnBg(); }
-
-  _dispatchCompute() {
-    if (!this.txtParticleCount && !this.bgParticleCount) return;
-
-    const encoder = this.device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(this.computePipeline);
-
-    if (this.txtParticleCount) {
-      pass.setBindGroup(0, this.txtBindGroup);
-      pass.dispatchWorkgroups(Math.ceil(this.txtParticleCount / 256));
-    }
-
-    if (this.bgParticleCount) {
-      pass.setBindGroup(0, this.bgBindGroup);
-      pass.dispatchWorkgroups(Math.ceil(this.bgParticleCount / 256));
-    }
-
-    pass.end();
-    this.device.queue.submit([encoder.finish()]);
-  }
 
   _updateUniforms() {
     if (this.txtParticleCount) {
@@ -327,45 +407,109 @@ export class WebGPURenderer {
     this._updateUniforms();
     this._updateRenderUniforms();
     this._updateFadeUniforms();
-    this._dispatchCompute();
 
     const encoder = this.device.createCommandEncoder();
 
-    const colorAttachment = {
-      view: this.context.getCurrentTexture().createView(),
+    // Compute pass
+    if (this.txtParticleCount || this.bgParticleCount) {
+      const pass = encoder.beginComputePass();
+      pass.setPipeline(this.computePipeline);
+
+      if (this.txtParticleCount) {
+        pass.setBindGroup(0, this.txtBindGroup);
+        pass.dispatchWorkgroups(Math.ceil(this.txtParticleCount / 256));
+      }
+      if (this.bgParticleCount) {
+        pass.setBindGroup(0, this.bgBindGroup);
+        pass.dispatchWorkgroups(Math.ceil(this.bgParticleCount / 256));
+      }
+
+      pass.end();
+    }
+
+    const texView = this.context.getCurrentTexture().createView();
+
+    const colorAtt = {
+      view: texView,
       loadOp: 'load',
       storeOp: 'store',
     };
 
     // Fade pass
     const fadePass = encoder.beginRenderPass({
-      colorAttachments: [colorAttachment],
+      colorAttachments: [colorAtt],
     });
     fadePass.setPipeline(this.fadePipeline);
     fadePass.setBindGroup(0, this.fadeBindGroup);
     fadePass.draw(3);
     fadePass.end();
 
-    // Trail pass (txt)
-    if (this.txtParticleCount > 0 && this.txtTrailBindGroup) {
+    const shapeMode = 0;
+
+    // Trail/shape pass (txt)
+    if (this.txtParticleCount) {
       const pass = encoder.beginRenderPass({
-        colorAttachments: [{ ...colorAttachment }],
+        colorAttachments: [{ ...colorAtt }],
       });
-      pass.setPipeline(this.trailPipeline);
-      pass.setBindGroup(0, this.txtTrailBindGroup);
-      pass.draw(6, this.txtParticleCount * (MAX_TRAIL - 1));
+
+      if (shapeMode) {
+        pass.setPipeline(this.shapePipeline);
+        pass.setBindGroup(0, this.txtShapeBindGroup);
+        pass.setVertexBuffer(0, this.shapeVertexBuffer);
+        pass.draw(SHAPE_COUNTS[shapeMode], this.txtParticleCount * MAX_TRAIL, SHAPE_OFFSETS[shapeMode], 0);
+      } else {
+        pass.setPipeline(this.trailPipeline);
+        pass.setBindGroup(0, this.txtTrailBindGroup);
+        pass.draw(6, this.txtParticleCount * (MAX_TRAIL - 1));
+      }
+
       pass.end();
     }
 
-    // Trail pass (bg)
-    if (this.bgParticleCount > 0 && this.bgTrailBindGroup) {
+    // Trail/shape pass (bg)
+    if (this.bgParticleCount) {
       const pass = encoder.beginRenderPass({
-        colorAttachments: [{ ...colorAttachment }],
+        colorAttachments: [{ ...colorAtt }],
       });
-      pass.setPipeline(this.trailPipeline);
-      pass.setBindGroup(0, this.bgTrailBindGroup);
-      pass.draw(6, this.bgParticleCount * (MAX_TRAIL - 1));
+
+      if (shapeMode) {
+        pass.setPipeline(this.shapePipeline);
+        pass.setBindGroup(0, this.bgShapeBindGroup);
+        pass.setVertexBuffer(0, this.shapeVertexBuffer);
+        pass.draw(SHAPE_COUNTS[shapeMode], this.bgParticleCount * MAX_TRAIL, SHAPE_OFFSETS[shapeMode], 0);
+      } else {
+        pass.setPipeline(this.trailPipeline);
+        pass.setBindGroup(0, this.bgTrailBindGroup);
+        pass.draw(6, this.bgParticleCount * (MAX_TRAIL - 1));
+      }
+
       pass.end();
+    }
+
+    // Debug overlay
+    if (S.debug) {
+      const ef = this.effect;
+      const dbgData = new ArrayBuffer(32);
+      const f32 = new Float32Array(dbgData);
+      const u32 = new Uint32Array(dbgData);
+      f32[0] = ef.cellSize;
+      u32[1] = ef.columns;
+      u32[2] = ef.rows;
+      f32[3] = ef.width;
+      f32[4] = ef.height;
+      this.device.queue.writeBuffer(this.debugUniformBuffer, 0, dbgData);
+
+      if (!this.debugBindGroup) {
+        this.debugBindGroup = this._makeDebugBindGroup();
+      }
+
+      const dbgPass = encoder.beginRenderPass({
+        colorAttachments: [{ ...colorAtt }],
+      });
+      dbgPass.setPipeline(this.debugPipeline);
+      dbgPass.setBindGroup(0, this.debugBindGroup);
+      dbgPass.draw(4, ef.columns * ef.rows);
+      dbgPass.end();
     }
 
     this.device.queue.submit([encoder.finish()]);
@@ -382,6 +526,8 @@ export class WebGPURenderer {
   }
 
   destroy() {
+    if (this._unsubscribe) this._unsubscribe();
+
     if (this.txtFlowTexture) this.txtFlowTexture.destroy();
     if (this.bgFlowTexture) this.bgFlowTexture.destroy();
     if (this.textMaskTexture) this.textMaskTexture.destroy();
@@ -390,9 +536,12 @@ export class WebGPURenderer {
     if (this.bgParticleBuffer) this.bgParticleBuffer.destroy();
     if (this.bgTrailBuffer) this.bgTrailBuffer.destroy();
     if (this.cellsBuffer) this.cellsBuffer.destroy();
+    if (this.maskBuffer) this.maskBuffer.destroy();
+    if (this.shapeVertexBuffer) this.shapeVertexBuffer.destroy();
     if (this.txtUniformBuffer) this.txtUniformBuffer.destroy();
     if (this.bgUniformBuffer) this.bgUniformBuffer.destroy();
     if (this.renderUniformBuffer) this.renderUniformBuffer.destroy();
     if (this.fadeUniformBuffer) this.fadeUniformBuffer.destroy();
+    if (this.debugUniformBuffer) this.debugUniformBuffer.destroy();
   }
 }
