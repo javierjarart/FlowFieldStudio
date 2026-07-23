@@ -14,25 +14,30 @@ struct Cell {
 };
 
 struct Uniforms {
-  cellSize      : f32,
-  txtNoiseScale : f32,
-  txtAngleMult  : f32,
-  txtBoost      : f32,
-  txtSpeedMin   : f32,
-  txtSpeedMax   : f32,
-  bgNoiseScale  : f32,
-  bgAngleMult   : f32,
-  bgSpeedMin    : f32,
-  bgSpeedMax    : f32,
-  txtShapeSize  : f32,
-  bgShapeSize   : f32,
-  time          : f32,
-  canvasWidth   : f32,
-  canvasHeight  : f32,
-  maxTrail      : u32,
-  textCellCount : u32,
-  numParticles  : u32,
-  _pad1         : u32,
+  cellSize       : f32,
+  txtNoiseScale  : f32,
+  txtAngleMult   : f32,
+  txtBoost       : f32,
+  txtSpeedMin    : f32,
+  txtSpeedMax    : f32,
+  bgNoiseScale   : f32,
+  bgAngleMult    : f32,
+  bgSpeedMin     : f32,
+  bgSpeedMax     : f32,
+  txtShapeSize   : f32,
+  bgShapeSize    : f32,
+  time           : f32,
+  canvasWidth    : f32,
+  canvasHeight   : f32,
+  maxTrail       : u32,
+  textCellCount  : u32,
+  numParticles   : u32,
+  _pad1          : u32,
+  mouseX         : f32,
+  mouseY         : f32,
+  mouseStrength  : f32,
+  distRadius     : f32,
+  _pad2          : f32,
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniforms;
@@ -115,6 +120,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
   let dir = vec2(cos(angle), sin(angle));
   (*p).pos = (*p).pos + dir * boost;
+
+  if (uni.mouseStrength > 0.0) {
+    let toParticle = (*p).pos - vec2(uni.mouseX, uni.mouseY);
+    let dist = length(toParticle);
+    if (dist < uni.distRadius && dist > 0.0) {
+      let force = uni.mouseStrength * (1.0 - dist / uni.distRadius);
+      (*p).pos += normalize(toParticle) * force;
+    }
+  }
 
   trail[idx * uni.maxTrail + cursor] = (*p).prev;
   cursor = (cursor + 1u) % uni.maxTrail;

@@ -66,11 +66,11 @@ export class WebGPURenderer {
     this.computePipeline = createComputePipeline(this.device);
 
     this.txtUniformBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.bgUniformBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -107,10 +107,10 @@ export class WebGPURenderer {
     this._createCellsBuffer();
     this._createMaskBuffer();
 
-    this._unsubscribe = bus.on('state:change', (path) => {
-      if (path === 'S.fadeAlpha') return;
+    this._unsubscribe = bus.on('state:change', ({ key }) => {
+      if (key === 'S.fadeAlpha') return;
       this._updateRenderUniforms();
-      if (path && (path.startsWith('S.txt.') || path.startsWith('S.bg.'))) {
+      if (key && (key.startsWith('S.txt.') || key.startsWith('S.bg.'))) {
         this._refreshFlowTextures();
       }
     });
@@ -256,7 +256,7 @@ export class WebGPURenderer {
 
   _writeUniforms(buffer, numParticles) {
     const ef = this.effect;
-    const data = new ArrayBuffer(80);
+    const data = new ArrayBuffer(96);
     const f32 = new Float32Array(data);
     const u32 = new Uint32Array(data);
 
@@ -278,6 +278,10 @@ export class WebGPURenderer {
     u32[15] = MAX_TRAIL;
     u32[16] = ef.textCells ? ef.textCells.length : 0;
     u32[17] = numParticles;
+    f32[19] = S.pointer.x;
+    f32[20] = S.pointer.y;
+    f32[21] = (S.distortion.enabled && S.pointer.down) ? S.distortion.strength : 0;
+    f32[22] = S.distortion.radius;
 
     this.device.queue.writeBuffer(buffer, 0, data);
   }
