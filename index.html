@@ -733,6 +733,7 @@ const S = reactive({
     boost:       3,
     shape:       'trail',
     shapeSize:   1.0,
+    trailStyle:  'random',
   },
 
   bg: {
@@ -750,6 +751,7 @@ const S = reactive({
     angleMult:   2,
     shape:       'trail',
     shapeSize:   0.8,
+    trailStyle:  'random',
   },
 
   fadeAlpha:  0.05,
@@ -764,6 +766,18 @@ const S = reactive({
 
   recording: false,
   recorderFps: 30,
+
+  distortion: {
+    enabled: true,
+    radius: 120,
+    strength: 3,
+  },
+  pointer: { x: 0, y: 0, down: false },
+  bgType: 'solid',
+  bgGradient: {
+    colors: ['#000000', '#1a1a2e', '#16213e'],
+    dir: 'v',
+  },
 });
 
 function hexToRgb(hex) {
@@ -3111,7 +3125,44 @@ const recorder = new RecorderManager(canvas);
 
 init(effect, recorder);
 
+function drawBgGradient() {
+  if (S.bgType === 'solid') {
+    ctx.fillStyle = S.bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  const colors = S.bgGradient.colors;
+  if (colors.length < 2) return;
+  let g;
+  const w = canvas.width, h = canvas.height;
+  if (S.bgType === 'linear') {
+    if (S.bgGradient.dir === 'h') g = ctx.createLinearGradient(0, 0, w, 0);
+    else if (S.bgGradient.dir === 'v') g = ctx.createLinearGradient(0, 0, 0, h);
+    else g = ctx.createLinearGradient(0, 0, w, h);
+  } else {
+    const cx = w / 2, cy = h / 2;
+    g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
+  }
+  for (let i = 0; i < colors.length; i++) {
+    g.addColorStop(i / (colors.length - 1), colors[i]);
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+bus.on('state:change', ({ key }) => {
+  if (key === 'S.bgType' || key.startsWith('S.bgGradient') || key === 'S.bgColor') {
+    drawBgGradient();
+  }
+});
+
+window.addEventListener('resize', () => {
+  drawBgGradient();
+});
+
 effect.init().then(() => {
+  drawBgGradient();
+
   let frameCount = 0, lastT = 0, fps = 60;
 
   function animate(t) {
