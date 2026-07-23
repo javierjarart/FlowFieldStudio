@@ -50,6 +50,8 @@ export const S = reactive({
     noiseScale:  500,
     angleMult:   4,
     boost:       3,
+    shape:       'trail',
+    shapeSize:   1.0,
   },
 
   bg: {
@@ -65,6 +67,8 @@ export const S = reactive({
     avoidText:   true,
     noiseScale:  800,
     angleMult:   2,
+    shape:       'trail',
+    shapeSize:   0.8,
   },
 
   fadeAlpha:  0.05,
