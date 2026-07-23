@@ -20,6 +20,7 @@ export function init(effectInstance, recorderInstance) {
   bindExport();
   bindRecording();
   bindApplyAndReinit();
+  bindPanelDrag();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -71,11 +72,23 @@ function bindTabs() {
 function bindPanelToggle() {
   const panelEl = document.getElementById('panel');
   const toggleBtn = document.getElementById('togglePanel');
+  const fab = document.getElementById('fab');
   if (!panelEl || !toggleBtn) return;
-  toggleBtn.addEventListener('click', () => {
-    const collapsed = panelEl.classList.toggle('collapsed');
+  const update = () => {
+    const collapsed = panelEl.classList.contains('collapsed');
     toggleBtn.textContent = collapsed ? '▼' : '▲';
+    toggleBtn.title = collapsed ? 'Abrir panel' : 'Cerrar panel';
+  };
+  toggleBtn.addEventListener('click', () => {
+    panelEl.classList.toggle('collapsed');
+    update();
   });
+  if (fab) {
+    fab.addEventListener('click', () => {
+      panelEl.classList.remove('collapsed');
+      update();
+    });
+  }
 }
 
 // ── Source mode ───────────────────────────────────────────────────────
@@ -371,4 +384,45 @@ function bindRecording() {
       elapsed.textContent = `${m}:${s}`;
     }
   }, 500);
+}
+
+// ── Panel draggable ────────────────────────────────────────────────────
+function bindPanelDrag() {
+  const panel = document.getElementById('panel');
+  const header = document.getElementById('panel-header');
+  if (!panel || !header) return;
+
+  let dragging = false;
+  let dragStartX, dragStartY, origLeft, origTop;
+
+  header.addEventListener('mousedown', e => {
+    if (e.target.id === 'togglePanel') return;
+    if (panel.style.right !== '' && panel.style.right !== 'auto') {
+      panel.style.right = '';
+      panel.style.left = '';
+    }
+    const rect = panel.getBoundingClientRect();
+    origLeft = rect.left;
+    origTop  = rect.top;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragging = true;
+    header.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    panel.style.left = (origLeft + dx) + 'px';
+    panel.style.top  = (origTop  + dy) + 'px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    header.style.cursor = 'grab';
+  });
 }
