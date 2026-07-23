@@ -1,10 +1,7 @@
 import { S } from '../state.js';
 import { bus } from '../bus.js';
 import { createComputePipeline, createParticleBuffers } from '../gpu/compute.js';
-import {
-  createTrailPipeline, createShapePipeline, createFadePipeline, createDebugPipeline,
-  createShapeVertexBuffer, SHAPE_OFFSETS, SHAPE_COUNTS,
-} from '../gpu/render.js';
+import { createTrailPipeline, createShapePipeline, createFadePipeline, createDebugPipeline, createShapeVertexBuffer, SHAPE_OFFSETS, SHAPE_COUNTS } from '../gpu/render.js';
 
 const MAX_TRAIL = 64;
 

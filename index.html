@@ -886,6 +886,12 @@ class TextParticle {
     if (s.colorMode === 'image')      this.color = cell.color;
     else if (s.colorMode === 'white') this.color = 'rgba(255,255,255,' + s.opacity + ')';
     else                              this.color = s.solidColor;
+    if (s.trailStyle === 'random') {
+      this.style = Math.floor(Math.random() * 4);
+    } else {
+      const idx = ['solid','dashed','dotted','glow'].indexOf(s.trailStyle);
+      this.style = idx >= 0 ? idx : 0;
+    }
   }
   draw(ctx) {
     if (this.history.length < 2) return;
@@ -896,11 +902,18 @@ class TextParticle {
       ctx.globalAlpha = S.txt.opacity;
       ctx.lineWidth = S.txt.lineWidth;
       ctx.strokeStyle = this.color;
+      if (this.style === 1) ctx.setLineDash([8, 6]);
+      else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
+      else if (this.style === 3) { ctx.shadowBlur = 12; ctx.shadowColor = ctx.strokeStyle; }
       ctx.beginPath();
       ctx.moveTo(this.history[0].x, this.history[0].y);
       for (let i = 1; i < this.history.length; i++)
         ctx.lineTo(this.history[i].x, this.history[i].y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineCap = 'butt';
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
     } else {
       const len = this.history.length;
       ctx.fillStyle = this.color;
@@ -932,6 +945,16 @@ class TextParticle {
     } else {
       this._init();
     }
+    if (S.distortion.enabled && S.pointer.down) {
+      const dx = this.x - S.pointer.x;
+      const dy = this.y - S.pointer.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < S.distortion.radius && dist > 0) {
+        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+        this.x += (dx / dist) * force;
+        this.y += (dy / dist) * force;
+      }
+    }
   }
 }
 
@@ -954,6 +977,12 @@ class BgParticle {
     this.history  = [{x: this.x, y: this.y}];
     this.timer    = this.maxLen * 2;
     this.color    = s.color;
+    if (s.trailStyle === 'random') {
+      this.style = Math.floor(Math.random() * 4);
+    } else {
+      const idx = ['solid','dashed','dotted','glow'].indexOf(s.trailStyle);
+      this.style = idx >= 0 ? idx : 0;
+    }
   }
   draw(ctx) {
     if (this.history.length < 2) return;
@@ -964,11 +993,18 @@ class BgParticle {
       ctx.globalAlpha = S.bg.opacity;
       ctx.lineWidth = S.bg.lineWidth;
       ctx.strokeStyle = this.color;
+      if (this.style === 1) ctx.setLineDash([8, 6]);
+      else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
+      else if (this.style === 3) { ctx.shadowBlur = 12; ctx.shadowColor = ctx.strokeStyle; }
       ctx.beginPath();
       ctx.moveTo(this.history[0].x, this.history[0].y);
       for (let i = 1; i < this.history.length; i++)
         ctx.lineTo(this.history[i].x, this.history[i].y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineCap = 'butt';
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
     } else {
       const len = this.history.length;
       ctx.fillStyle = this.color;
@@ -1004,6 +1040,16 @@ class BgParticle {
       this.history.shift();
     } else {
       this._init();
+    }
+    if (S.distortion.enabled && S.pointer.down) {
+      const dx = this.x - S.pointer.x;
+      const dy = this.y - S.pointer.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < S.distortion.radius && dist > 0) {
+        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+        this.x += (dx / dist) * force;
+        this.y += (dy / dist) * force;
+      }
     }
   }
 }
@@ -1081,6 +1127,8 @@ struct Particle {
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) color: vec4<f32>,
+  @location(1) segT: f32,
+  @location(2) style: u32,
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniforms;
@@ -1099,7 +1147,9 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
   let p = particles[particleIdx];
   let cursor = p.params.z;
   let maxLen = max(p.params.y, 1u);
-  let isBg = p.params.w;
+  let raw = p.params.w;
+  let isBg = raw & 1u;
+  let style = (raw >> 1u) & 3u;
 
   let slotA = (cursor + segmentIdx) % maxLen;
   let slotB = (cursor + segmentIdx + 1u) % maxLen;
@@ -1123,6 +1173,8 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
   var output: VertexOutput;
   output.position = vec4(ndcX, ndcY, 0.0, 1.0);
   output.color = vec4(p.color.rgb, p.color.a * alpha);
+  output.segT = f32(segmentIdx) / f32(maxLen);
+  output.style = style;
   return output;
 }
 `;
@@ -1130,7 +1182,19 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
 const WGSL_TRAIL_FRAG = `
 @fragment
 fn trailFragment(input: VertexOutput) -> @location(0) vec4<f32> {
-  return input.color;
+  var color = input.color;
+  if (input.style == 1u) {
+    let dashPos = fract(input.segT * 20.0);
+    if (dashPos > 0.5) { discard; }
+  }
+  if (input.style == 2u) {
+    let dotPos = fract(input.segT * 30.0);
+    if (dotPos > 0.3) { discard; }
+  }
+  if (input.style == 3u) {
+    color.a *= 0.7;
+  }
+  return color;
 }
 `;
 
@@ -1470,25 +1534,30 @@ struct Cell {
 };
 
 struct Uniforms {
-  cellSize      : f32,
-  txtNoiseScale : f32,
-  txtAngleMult  : f32,
-  txtBoost      : f32,
-  txtSpeedMin   : f32,
-  txtSpeedMax   : f32,
-  bgNoiseScale  : f32,
-  bgAngleMult   : f32,
-  bgSpeedMin    : f32,
-  bgSpeedMax    : f32,
-  txtShapeSize  : f32,
-  bgShapeSize   : f32,
-  time          : f32,
-  canvasWidth   : f32,
-  canvasHeight  : f32,
-  maxTrail      : u32,
-  textCellCount : u32,
-  numParticles  : u32,
-  _pad1         : u32,
+  cellSize       : f32,
+  txtNoiseScale  : f32,
+  txtAngleMult   : f32,
+  txtBoost       : f32,
+  txtSpeedMin    : f32,
+  txtSpeedMax    : f32,
+  bgNoiseScale   : f32,
+  bgAngleMult    : f32,
+  bgSpeedMin     : f32,
+  bgSpeedMax     : f32,
+  txtShapeSize   : f32,
+  bgShapeSize    : f32,
+  time           : f32,
+  canvasWidth    : f32,
+  canvasHeight   : f32,
+  maxTrail       : u32,
+  textCellCount  : u32,
+  numParticles   : u32,
+  _pad1          : u32,
+  mouseX         : f32,
+  mouseY         : f32,
+  mouseStrength  : f32,
+  distRadius     : f32,
+  _pad2          : f32,
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniforms;
@@ -1532,7 +1601,8 @@ fn reseed(p: ptr<function, Particle>, seed: ptr<function, u32>, isBg: u32) {
                    uni.bgSpeedMin + randFloat(seed) * (uni.bgSpeedMax - uni.bgSpeedMin),
                    isBg > 0u);
   (*p).dir = vec2(cos(a), sin(a));
-  (*p).params = vec4(10u, 10u, 0u, isBg);
+  let trailStyle = u32(randFloat(seed) * 3.999);
+  (*p).params = vec4(10u, 10u, 0u, isBg | (trailStyle << 1u));
 }
 
 @compute @workgroup_size(256)
@@ -1570,6 +1640,15 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
   let dir = vec2(cos(angle), sin(angle));
   (*p).pos = (*p).pos + dir * boost;
+
+  if (uni.mouseStrength > 0.0) {
+    let toParticle = (*p).pos - vec2(uni.mouseX, uni.mouseY);
+    let dist = length(toParticle);
+    if (dist < uni.distRadius && dist > 0.0) {
+      let force = uni.mouseStrength * (1.0 - dist / uni.distRadius);
+      (*p).pos += normalize(toParticle) * force;
+    }
+  }
 
   trail[idx * uni.maxTrail + cursor] = (*p).prev;
   cursor = (cursor + 1u) % uni.maxTrail;
@@ -1628,7 +1707,8 @@ function createParticleBuffers(device, effect, count, isBg, maxTrail = 64) {
     uintView[base + 8] = trailLen * 2;
     uintView[base + 9] = trailLen;
     uintView[base + 10] = 0;
-    uintView[base + 11] = isBg ? 1 : 0;
+    const trailStyle = Math.floor(Math.random() * 4);
+    uintView[base + 11] = (isBg ? 1 : 0) | (trailStyle << 1);
 
     floatView[base + 12] = 1;
     floatView[base + 13] = 1;
@@ -1652,9 +1732,6 @@ function createParticleBuffers(device, effect, count, isBg, maxTrail = 64) {
 }
 
 
-  createTrailPipeline, createShapePipeline, createFadePipeline, createDebugPipeline,
-  createShapeVertexBuffer, SHAPE_OFFSETS, SHAPE_COUNTS,
-} from '../gpu/render.js';
 
 const MAX_TRAIL = 64;
 
@@ -1716,11 +1793,11 @@ class WebGPURenderer {
     this.computePipeline = createComputePipeline(this.device);
 
     this.txtUniformBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.bgUniformBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -1757,10 +1834,10 @@ class WebGPURenderer {
     this._createCellsBuffer();
     this._createMaskBuffer();
 
-    this._unsubscribe = bus.on('state:change', (path) => {
-      if (path === 'S.fadeAlpha') return;
+    this._unsubscribe = bus.on('state:change', ({ key }) => {
+      if (key === 'S.fadeAlpha') return;
       this._updateRenderUniforms();
-      if (path && (path.startsWith('S.txt.') || path.startsWith('S.bg.'))) {
+      if (key && (key.startsWith('S.txt.') || key.startsWith('S.bg.'))) {
         this._refreshFlowTextures();
       }
     });
@@ -1906,7 +1983,7 @@ class WebGPURenderer {
 
   _writeUniforms(buffer, numParticles) {
     const ef = this.effect;
-    const data = new ArrayBuffer(80);
+    const data = new ArrayBuffer(96);
     const f32 = new Float32Array(data);
     const u32 = new Uint32Array(data);
 
@@ -1928,6 +2005,10 @@ class WebGPURenderer {
     u32[15] = MAX_TRAIL;
     u32[16] = ef.textCells ? ef.textCells.length : 0;
     u32[17] = numParticles;
+    f32[19] = S.pointer.x;
+    f32[20] = S.pointer.y;
+    f32[21] = (S.distortion.enabled && S.pointer.down) ? S.distortion.strength : 0;
+    f32[22] = S.distortion.radius;
 
     this.device.queue.writeBuffer(buffer, 0, data);
   }
@@ -3124,6 +3205,27 @@ const effect = new Effect(canvas, ctx);
 const recorder = new RecorderManager(canvas);
 
 init(effect, recorder);
+
+(function initPointer() {
+  let pointerDown = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (S.distortion.enabled) {
+      pointerDown = true;
+      S.pointer = { x: e.offsetX, y: e.offsetY, down: true };
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    S.pointer = { x: e.offsetX, y: e.offsetY, down: pointerDown };
+  });
+  canvas.addEventListener('pointerup', () => {
+    pointerDown = false;
+    S.pointer = { ...S.pointer, down: false };
+  });
+  canvas.addEventListener('pointerleave', () => {
+    pointerDown = false;
+    S.pointer = { ...S.pointer, down: false };
+  });
+})();
 
 function drawBgGradient() {
   if (S.bgType === 'solid') {
