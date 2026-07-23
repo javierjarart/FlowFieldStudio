@@ -13,7 +13,48 @@ const recorder = new RecorderManager(canvas);
 
 init(effect, recorder);
 
+let bgLinearGrad = null;
+let bgRadialGrad = null;
+
+function drawBgGradient() {
+  if (S.bgType === 'solid') return;
+  let g;
+  const w = canvas.width, h = canvas.height;
+  if (S.bgType === 'linear') {
+    if (S.bgGradient.dir === 'h') g = ctx.createLinearGradient(0, 0, w, 0);
+    else if (S.bgGradient.dir === 'v') g = ctx.createLinearGradient(0, 0, 0, h);
+    else g = ctx.createLinearGradient(0, 0, w, h);
+  } else {
+    const cx = w / 2, cy = h / 2;
+    g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
+  }
+  for (let i = 0; i < S.bgGradient.colors.length; i++) {
+    g.addColorStop(i / (S.bgGradient.colors.length - 1), S.bgGradient.colors[i]);
+  }
+  if (S.bgType === 'linear') bgLinearGrad = g;
+  else bgRadialGrad = g;
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function invalidateBgGradient() {
+  if (S.bgType === 'solid') return;
+  setTimeout(() => drawBgGradient(), 0);
+}
+
+bus.on('state:change', ({ key }) => {
+  if (key === 'S.bgType' || key.startsWith('S.bgGradient') || key === 'S.bgColor') {
+    invalidateBgGradient();
+  }
+});
+
+window.addEventListener('resize', () => {
+  invalidateBgGradient();
+});
+
 effect.init().then(() => {
+  drawBgGradient();
+
   let frameCount = 0, lastT = 0, fps = 60;
 
   function animate(t) {
