@@ -9,6 +9,8 @@ Renderiza en canvas con captura de video en WebM (VP9).
 [![Live Demo](https://img.shields.io/badge/demo-online-8a2be2?style=for-the-badge&logo=cloudflare&logoColor=white)](https://flowfieldstudio.jaralorescl.workers.dev)
 [![GitHub](https://img.shields.io/badge/source-github-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/javierjarart/FlowFieldStudio)
 
+<img src="Flowfieldstudio.png" alt="Flow Field Studio screenshot" width="700">
+
 ---
 
 </div>
