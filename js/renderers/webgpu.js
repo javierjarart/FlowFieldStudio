@@ -11,7 +11,6 @@ export class WebGPURenderer {
     this.effect = effect;
     this.device = null;
     this.context = null;
-    this.swapChain = null;
     this.format = 'bgra8unorm';
     this.textParticles = [];
     this.bgParticles = [];
@@ -28,10 +27,10 @@ export class WebGPURenderer {
     this.context.configure({
       device: this.device,
       format: this.format,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
     this._createFlowFieldTexture();
+    this._createTextMaskTexture();
   }
 
   _createFlowFieldTexture() {
@@ -118,11 +117,11 @@ export class WebGPURenderer {
 
   resize(w, h) {
     if (!this.device) return;
+    this.effect.canvas.width = w;
+    this.effect.canvas.height = h;
     this.context.configure({
       device: this.device,
       format: this.format,
-      width: w,
-      height: h,
     });
   }
 
