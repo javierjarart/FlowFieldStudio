@@ -2480,16 +2480,21 @@ class Effect {
       }
     }
 
-    const rendererClass = navigator.gpu
-      ? (await import('./renderers/webgpu.js')).WebGPURenderer
-      : Canvas2DRenderer;
-    this.renderer = new rendererClass(this);
+    let RendererClass = Canvas2DRenderer;
+    if (navigator.gpu) {
+      try {
+        const mod = await import('./renderers/webgpu.js');
+        RendererClass = mod.WebGPURenderer;
+      } catch {
+        if (typeof WebGPURenderer !== 'undefined') RendererClass = WebGPURenderer;
+      }
+    }
+    this.renderer = new RendererClass(this);
     try {
-      await this.renderer.init();
+      if (RendererClass !== Canvas2DRenderer) await this.renderer.init();
     } catch (e) {
       console.warn('WebGPU init failed, falling back to Canvas2D:', e);
       this.renderer = new Canvas2DRenderer(this);
-      this.renderer.init();
     }
 
     this.respawnText();
