@@ -1237,7 +1237,7 @@ class IdleState {
       const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
         ? 'video/webm; codecs=vp9'
         : 'video/webm; codecs=vp8';
-      this.mgr.recorder = new MediaRecorder(this.mgr.stream, { mimeType });
+      this.mgr.recorder = new MediaRecorder(this.mgr.stream, { mimeType, bitsPerSecond: 15000000 });
       this.mgr.chunks = [];
       this.mgr.startTime = Date.now();
 
