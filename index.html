@@ -403,6 +403,28 @@ body:has(#panel.collapsed) #fab { display: flex; }
       </div>
 
       <div class="group">
+        <div class="group-title">Forma de part&iacute;cula</div>
+        <div class="row">
+          <div class="btn-row">
+            <button class="ctrl active" data-txt-shape="trail">Trazo</button>
+            <button class="ctrl" data-txt-shape="circle">C&iacute;rculo</button>
+            <button class="ctrl" data-txt-shape="triangle">Tri&aacute;ngulo</button>
+            <button class="ctrl" data-txt-shape="diamond">Diamante</button>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="ctrl" data-txt-shape="star">Estrella</button>
+            <button class="ctrl" data-txt-shape="square">Cuadrado</button>
+          </div>
+        </div>
+        <div class="row">
+          <label>Tama&ntilde;o forma <span id="txtShapeSizeVal" class="badge">1.0</span></label>
+          <div class="row-val">
+            <input type="range" id="txtShapeSize" min="0.3" max="4" step="0.1" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
         <div class="group-title">Color de part&iacute;culas</div>
         <div class="btn-row">
           <button class="ctrl active" data-txtcolor="image">Origen</button>
@@ -490,6 +512,28 @@ body:has(#panel.collapsed) #fab { display: flex; }
           <label>Opacidad <span id="bgOpacVal" class="badge">0.4</span></label>
           <div class="row-val">
             <input type="range" id="bgOpac" min="0.02" max="1" step="0.02" value="0.4">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Forma de part&iacute;cula</div>
+        <div class="row">
+          <div class="btn-row">
+            <button class="ctrl active" data-bg-shape="trail">Trazo</button>
+            <button class="ctrl" data-bg-shape="circle">C&iacute;rculo</button>
+            <button class="ctrl" data-bg-shape="triangle">Tri&aacute;ngulo</button>
+            <button class="ctrl" data-bg-shape="diamond">Diamante</button>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="ctrl" data-bg-shape="star">Estrella</button>
+            <button class="ctrl" data-bg-shape="square">Cuadrado</button>
+          </div>
+        </div>
+        <div class="row">
+          <label>Tama&ntilde;o forma <span id="bgShapeSizeVal" class="badge">0.8</span></label>
+          <div class="row-val">
+            <input type="range" id="bgShapeSize" min="0.3" max="4" step="0.1" value="0.8">
           </div>
         </div>
       </div>
@@ -687,6 +731,8 @@ const S = reactive({
     noiseScale:  500,
     angleMult:   4,
     boost:       3,
+    shape:       'trail',
+    shapeSize:   1.0,
   },
 
   bg: {
@@ -702,6 +748,8 @@ const S = reactive({
     avoidText:   true,
     noiseScale:  800,
     angleMult:   2,
+    shape:       'trail',
+    shapeSize:   0.8,
   },
 
   fadeAlpha:  0.05,
@@ -759,6 +807,53 @@ function noise(x, y) {
 
 
 
+function drawShape(ctx, type, x, y, size) {
+  const s = size * 2;
+  ctx.save();
+  ctx.translate(x, y);
+  switch (type) {
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(0, 0, s / 2, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'triangle':
+      ctx.beginPath();
+      ctx.moveTo(0, -s / 2);
+      ctx.lineTo(-s / 2, s / 2);
+      ctx.lineTo(s / 2, s / 2);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'diamond':
+      ctx.beginPath();
+      ctx.moveTo(0, -s / 2);
+      ctx.lineTo(s / 2, 0);
+      ctx.lineTo(0, s / 2);
+      ctx.lineTo(-s / 2, 0);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'star': {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        const r = i % 2 === 0 ? s / 2 : s / 4;
+        i === 0
+          ? ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r)
+          : ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'square':
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      break;
+  }
+  ctx.restore();
+}
+
 class TextParticle {
   constructor(effect) {
     this.effect = effect;
@@ -783,15 +878,30 @@ class TextParticle {
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalAlpha     = S.txt.opacity;
-    ctx.lineWidth       = S.txt.lineWidth;
-    ctx.strokeStyle     = this.color;
     ctx.globalCompositeOperation = S.blendMode;
-    ctx.beginPath();
-    ctx.moveTo(this.history[0].x, this.history[0].y);
-    for (let i = 1; i < this.history.length; i++)
-      ctx.lineTo(this.history[i].x, this.history[i].y);
-    ctx.stroke();
+
+    const shape = S.txt.shape;
+    if (shape === 'trail') {
+      ctx.globalAlpha = S.txt.opacity;
+      ctx.lineWidth = S.txt.lineWidth;
+      ctx.strokeStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(this.history[0].x, this.history[0].y);
+      for (let i = 1; i < this.history.length; i++)
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      ctx.stroke();
+    } else {
+      const len = this.history.length;
+      ctx.fillStyle = this.color;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        const alpha = S.txt.opacity * (0.3 + 0.7 * t);
+        const size = S.txt.shapeSize * (0.2 + 0.8 * t);
+        ctx.globalAlpha = alpha;
+        drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
+      }
+    }
+
     ctx.restore();
   }
 
@@ -841,15 +951,30 @@ class BgParticle {
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalAlpha    = S.bg.opacity;
-    ctx.lineWidth      = S.bg.lineWidth;
-    ctx.strokeStyle    = this.color;
     ctx.globalCompositeOperation = S.blendMode;
-    ctx.beginPath();
-    ctx.moveTo(this.history[0].x, this.history[0].y);
-    for (let i = 1; i < this.history.length; i++)
-      ctx.lineTo(this.history[i].x, this.history[i].y);
-    ctx.stroke();
+
+    const shape = S.bg.shape;
+    if (shape === 'trail') {
+      ctx.globalAlpha = S.bg.opacity;
+      ctx.lineWidth = S.bg.lineWidth;
+      ctx.strokeStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(this.history[0].x, this.history[0].y);
+      for (let i = 1; i < this.history.length; i++)
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      ctx.stroke();
+    } else {
+      const len = this.history.length;
+      ctx.fillStyle = this.color;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        const alpha = S.bg.opacity * (0.3 + 0.7 * t);
+        const size = S.bg.shapeSize * (0.2 + 0.8 * t);
+        ctx.globalAlpha = alpha;
+        drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
+      }
+    }
+
     ctx.restore();
   }
 
@@ -1360,7 +1485,9 @@ function init(effectInstance, recorderInstance) {
   bindImageControls();
   bindParticleSliders();
   bindParticleColorMode();
+  bindParticleShape();
   bindBgControls();
+  bindBgShape();
   bindFxControls();
   bindExport();
   bindRecording();
@@ -1568,6 +1695,20 @@ function bindParticleColorMode() {
         _effect.textParticles.forEach(p => { p.color = S.txt.solidColor; });
     });
   }
+}
+
+function bindParticleShape() {
+  bindBtnGroup('[data-txt-shape]', 'txtShape', val => {
+    S.txt.shape = val;
+  });
+  bindSlider('txtShapeSize', 'txtShapeSizeVal', 1, v => { S.txt.shapeSize = v; });
+}
+
+function bindBgShape() {
+  bindBtnGroup('[data-bg-shape]', 'bgShape', val => {
+    S.bg.shape = val;
+  });
+  bindSlider('bgShapeSize', 'bgShapeSizeVal', 1, v => { S.bg.shapeSize = v; });
 }
 
 // ── Background controls ───────────────────────────────────────────────

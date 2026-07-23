@@ -15,7 +15,9 @@ export function init(effectInstance, recorderInstance) {
   bindImageControls();
   bindParticleSliders();
   bindParticleColorMode();
+  bindParticleShape();
   bindBgControls();
+  bindBgShape();
   bindFxControls();
   bindExport();
   bindRecording();
@@ -223,6 +225,20 @@ function bindParticleColorMode() {
         _effect.textParticles.forEach(p => { p.color = S.txt.solidColor; });
     });
   }
+}
+
+function bindParticleShape() {
+  bindBtnGroup('[data-txt-shape]', 'txtShape', val => {
+    S.txt.shape = val;
+  });
+  bindSlider('txtShapeSize', 'txtShapeSizeVal', 1, v => { S.txt.shapeSize = v; });
+}
+
+function bindBgShape() {
+  bindBtnGroup('[data-bg-shape]', 'bgShape', val => {
+    S.bg.shape = val;
+  });
+  bindSlider('bgShapeSize', 'bgShapeSizeVal', 1, v => { S.bg.shapeSize = v; });
 }
 
 // ── Background controls ───────────────────────────────────────────────
