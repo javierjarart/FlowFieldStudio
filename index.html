@@ -1041,8 +1041,201 @@ const WGSL_RENDER_FRAG = '';
 // render pipeline setup will go here
 
 
-const WGSL_COMPUTE = '';
-// compute pipeline setup will go here
+
+const WGSL_COMPUTE = `
+struct Particle {
+  pos    : vec2<f32>,
+  prev   : vec2<f32>,
+  dir    : vec2<f32>,
+  params : vec4<u32>,
+  color  : vec4<f32>,
+};
+
+struct Cell {
+  pos : vec2<f32>,
+};
+
+struct Uniforms {
+  cellSize      : f32,
+  txtNoiseScale : f32,
+  txtAngleMult  : f32,
+  txtBoost      : f32,
+  txtSpeedMin   : f32,
+  txtSpeedMax   : f32,
+  bgNoiseScale  : f32,
+  bgAngleMult   : f32,
+  bgSpeedMin    : f32,
+  bgSpeedMax    : f32,
+  txtShapeSize  : f32,
+  bgShapeSize   : f32,
+  time          : f32,
+  canvasWidth   : f32,
+  canvasHeight  : f32,
+  maxTrail      : u32,
+  textCellCount : u32,
+  numParticles  : u32,
+  _pad1         : u32,
+};
+
+@group(0) @binding(0) var<uniform> uni: Uniforms;
+@group(0) @binding(1) var<storage, read_write> particles: array<Particle>;
+@group(0) @binding(2) var<storage, read_write> trail: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read> cells: array<Cell>;
+@group(0) @binding(4) var txtFlow: texture_2d<f32>;
+@group(0) @binding(5) var bgFlow: texture_2d<f32>;
+@group(0) @binding(6) var textMask: texture_2d<f32>;
+
+fn pcg(p: u32) -> u32 {
+  var state = p * 747796405u + 2891336453u;
+  var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+fn randFloat(s: ptr<function, u32>) -> f32 {
+  let v = pcg(*s);
+  *s = v;
+  return f32(v & 65535u) / 65535.0;
+}
+
+fn sampleFlow(tex: texture_2d<f32>, pos: vec2<f32>) -> vec2<f32> {
+  let dim = textureDimensions(tex);
+  let col = u32(clamp(pos.x / uni.cellSize, 0.0, f32(dim.x - 1)));
+  let row = u32(clamp(pos.y / uni.cellSize, 0.0, f32(dim.y - 1)));
+  return textureLoad(tex, vec2<i32>(i32(col), i32(row)), 0).rg;
+}
+
+fn reseed(p: ptr<function, Particle>, seed: ptr<function, u32>, isBg: u32) {
+  if (uni.textCellCount > 0u) {
+    let ci = u32(randFloat(seed) * f32(uni.textCellCount));
+    let cellPos = cells[ci].pos;
+    (*p).pos = cellPos + vec2(randFloat(seed), randFloat(seed)) * uni.cellSize;
+  } else {
+    (*p).pos = vec2(randFloat(seed) * uni.canvasWidth, randFloat(seed) * uni.canvasHeight);
+  }
+  (*p).prev = (*p).pos;
+  let a = randFloat(seed) * 6.2832;
+  let spd = select(uni.txtSpeedMin + randFloat(seed) * (uni.txtSpeedMax - uni.txtSpeedMin),
+                   uni.bgSpeedMin + randFloat(seed) * (uni.bgSpeedMax - uni.bgSpeedMin),
+                   isBg > 0u);
+  (*p).dir = vec2(cos(a), sin(a));
+  (*p).params = vec4(10u, 10u, 0u, isBg);
+}
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  let idx = id.x;
+  if (idx >= uni.numParticles) { return; }
+
+  var seed = idx * 1234567u + u32(uni.time * 1000.0);
+  let p = &particles[idx];
+
+  var age = (*p).params[0];
+  let maxLen = (*p).params[1];
+  var cursor = (*p).params[2];
+  let isBg = (*p).params[3];
+
+  if (age > 0u) {
+    age = age - 1u;
+  }
+
+  if (age == 0u) {
+    reseed(p, &seed, isBg);
+    return;
+  }
+
+  let flow = select(
+    sampleFlow(txtFlow, (*p).pos),
+    sampleFlow(bgFlow, (*p).pos),
+    isBg > 0u
+  );
+  let angle = (flow.r * 2.0 - 1.0) * 3.14159 * select(uni.txtAngleMult, uni.bgAngleMult, isBg > 0u);
+  let inText = flow.g > 0.5;
+  let boost = select(1.0, uni.txtBoost, inText && isBg == 0u);
+
+  (*p).prev = (*p).pos;
+
+  let dir = vec2(cos(angle), sin(angle));
+  (*p).pos = (*p).pos + dir * boost;
+
+  trail[idx * uni.maxTrail + cursor] = (*p).prev;
+  cursor = (cursor + 1u) % uni.maxTrail;
+  (*p).params[2] = cursor;
+
+  if (isBg > 0u) {
+    if ((*p).pos.x < 0.0 || (*p).pos.x > uni.canvasWidth || (*p).pos.y < 0.0 || (*p).pos.y > uni.canvasHeight) {
+      age = 0u;
+    }
+  }
+
+  (*p).params[0] = age;
+}
+`;
+
+function createComputePipeline(device) {
+  const shader = device.createShaderModule({
+    code: WGSL_COMPUTE,
+  });
+
+  const pipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {
+      module: shader,
+      entryPoint: 'main',
+    },
+  });
+
+  return pipeline;
+}
+
+function createParticleBuffers(device, effect, count, isBg, maxTrail = 64) {
+  const ef = effect;
+  const particleSize = 64;
+  const buf = new ArrayBuffer(count * particleSize);
+  const floatView = new Float32Array(buf);
+  const uintView = new Uint32Array(buf);
+
+  for (let i = 0; i < count; i++) {
+    const stride = particleSize / 4;
+    const base = i * stride;
+
+    const x = Math.random() * ef.width;
+    const y = Math.random() * ef.height;
+    floatView[base + 0] = x;
+    floatView[base + 1] = y;
+    floatView[base + 2] = x;
+    floatView[base + 3] = y;
+    floatView[base + 4] = 0;
+    floatView[base + 5] = 0;
+
+    const trailLen = Math.floor(
+      (isBg ? S.bg.trailMin : S.txt.trailMin) +
+      Math.random() * ((isBg ? S.bg.trailMax : S.txt.trailMax) - (isBg ? S.bg.trailMin : S.txt.trailMin))
+    );
+    uintView[base + 8] = trailLen * 2;
+    uintView[base + 9] = trailLen;
+    uintView[base + 10] = 0;
+    uintView[base + 11] = isBg ? 1 : 0;
+
+    floatView[base + 12] = 1;
+    floatView[base + 13] = 1;
+    floatView[base + 14] = 1;
+    floatView[base + 15] = 1;
+  }
+
+  const buffer = device.createBuffer({
+    size: count * particleSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(buffer, 0, buf);
+
+  const trailSize = count * maxTrail * 8;
+  const trailBuffer = device.createBuffer({
+    size: trailSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+  });
+
+  return { particles: buffer, trail: trailBuffer };
+}
 
 
 
@@ -1060,6 +1253,18 @@ class WebGPURenderer {
     this.format = 'bgra8unorm';
     this.textParticles = [];
     this.bgParticles = [];
+    this.computePipeline = null;
+    this.txtUniformBuffer = null;
+    this.bgUniformBuffer = null;
+    this.cellsBuffer = null;
+    this.txtParticleBuffer = null;
+    this.txtTrailBuffer = null;
+    this.bgParticleBuffer = null;
+    this.bgTrailBuffer = null;
+    this.txtParticleCount = 0;
+    this.bgParticleCount = 0;
+    this.txtBindGroup = null;
+    this.bgBindGroup = null;
   }
 
   async init() {
@@ -1075,8 +1280,37 @@ class WebGPURenderer {
       format: this.format,
     });
 
+    this.computePipeline = createComputePipeline(this.device);
+
+    this.txtUniformBuffer = this.device.createBuffer({
+      size: 80,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.bgUniformBuffer = this.device.createBuffer({
+      size: 80,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
     this._createFlowFieldTexture();
     this._createTextMaskTexture();
+    this._createCellsBuffer();
+  }
+
+  _createCellsBuffer() {
+    const ef = this.effect;
+    const cells = ef.textCells || [];
+    const count = Math.max(cells.length, 1);
+    const buf = new ArrayBuffer(count * 8);
+    const f32 = new Float32Array(buf);
+    for (let i = 0; i < cells.length; i++) {
+      f32[i * 2] = cells[i].x;
+      f32[i * 2 + 1] = cells[i].y;
+    }
+    this.cellsBuffer = this.device.createBuffer({
+      size: buf.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.cellsBuffer, 0, buf);
   }
 
   _createFlowFieldTexture() {
@@ -1106,7 +1340,6 @@ class WebGPURenderer {
       [ef.columns, ef.rows, 1]
     );
 
-    // Bg flow field
     for (let row = 0; row < ef.rows; row++) {
       for (let col = 0; col < ef.columns; col++) {
         const idx = row * ef.columns + col;
@@ -1126,7 +1359,15 @@ class WebGPURenderer {
 
   _createTextMaskTexture() {
     const ef = this.effect;
-    if (!ef.textMask) return;
+    if (!ef.textMask) {
+      const desc = {
+        size: [1, 1, 1],
+        format: 'rg8unorm',
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+      };
+      this.textMaskTexture = this.device.createTexture(desc);
+      return;
+    }
     const data = new Uint8Array(ef.rows * ef.columns * 2);
     for (let i = 0; i < ef.rows * ef.columns; i++) {
       data[i * 2] = ef.textMask[i] * 255;
@@ -1146,19 +1387,104 @@ class WebGPURenderer {
     );
   }
 
+  _writeUniforms(buffer, numParticles) {
+    const ef = this.effect;
+    const data = new ArrayBuffer(80);
+    const f32 = new Float32Array(data);
+    const u32 = new Uint32Array(data);
+
+    f32[0] = ef.cellSize;
+    f32[1] = S.txt.noiseScale;
+    f32[2] = S.txt.angleMult;
+    f32[3] = S.txt.boost;
+    f32[4] = S.txt.speedMin;
+    f32[5] = S.txt.speedMax;
+    f32[6] = S.bg.noiseScale;
+    f32[7] = S.bg.angleMult;
+    f32[8] = S.bg.speedMin;
+    f32[9] = S.bg.speedMax;
+    f32[10] = S.txt.shapeSize;
+    f32[11] = S.bg.shapeSize;
+    f32[12] = performance.now() / 1000;
+    f32[13] = ef.width;
+    f32[14] = ef.height;
+    u32[15] = MAX_TRAIL;
+    u32[16] = ef.textCells ? ef.textCells.length : 0;
+    u32[17] = numParticles;
+
+    this.device.queue.writeBuffer(buffer, 0, data);
+  }
+
+  _makeBindGroup(uniformBuffer, particleBuffer, trailBuffer) {
+    const entries = [
+      { binding: 0, resource: { buffer: uniformBuffer } },
+      { binding: 1, resource: { buffer: particleBuffer } },
+      { binding: 2, resource: { buffer: trailBuffer } },
+      { binding: 3, resource: { buffer: this.cellsBuffer } },
+      { binding: 4, resource: this.txtFlowTexture.createView() },
+      { binding: 5, resource: this.bgFlowTexture.createView() },
+      { binding: 6, resource: this.textMaskTexture.createView() },
+    ];
+    return this.device.createBindGroup({
+      layout: this.computePipeline.getBindGroupLayout(0),
+      entries,
+    });
+  }
+
   spawnText() {
-    // Will allocate GPU buffers
+    if (!this.effect.textCells || !this.effect.textCells.length) {
+      this.txtParticleCount = 0;
+      return;
+    }
+    const count = S.txt.count;
+    const { particles, trail } = createParticleBuffers(this.device, this.effect, count, false, MAX_TRAIL);
+    this.txtParticleBuffer = particles;
+    this.txtTrailBuffer = trail;
+    this.txtParticleCount = count;
+    this.txtBindGroup = this._makeBindGroup(this.txtUniformBuffer, particles, trail);
   }
 
   spawnBg() {
-    // Will allocate GPU buffers
+    if (!S.bg.enabled) {
+      this.bgParticleCount = 0;
+      return;
+    }
+    const count = S.bg.count;
+    const { particles, trail } = createParticleBuffers(this.device, this.effect, count, true, MAX_TRAIL);
+    this.bgParticleBuffer = particles;
+    this.bgTrailBuffer = trail;
+    this.bgParticleCount = count;
+    this.bgBindGroup = this._makeBindGroup(this.bgUniformBuffer, particles, trail);
   }
 
   respawnText() { this.spawnText(); }
   respawnBg()   { this.spawnBg(); }
 
+  _dispatchCompute() {
+    if (!this.txtParticleCount && !this.bgParticleCount) return;
+
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(this.computePipeline);
+
+    if (this.txtParticleCount) {
+      this._writeUniforms(this.txtUniformBuffer, this.txtParticleCount);
+      pass.setBindGroup(0, this.txtBindGroup);
+      pass.dispatchWorkgroups(Math.ceil(this.txtParticleCount / 256));
+    }
+
+    if (this.bgParticleCount) {
+      this._writeUniforms(this.bgUniformBuffer, this.bgParticleCount);
+      pass.setBindGroup(0, this.bgBindGroup);
+      pass.dispatchWorkgroups(Math.ceil(this.bgParticleCount / 256));
+    }
+
+    pass.end();
+    this.device.queue.submit([encoder.finish()]);
+  }
+
   render(ctx) {
-    // Early version — render nothing visible yet
+    this._dispatchCompute();
   }
 
   resize(w, h) {
@@ -1172,10 +1498,16 @@ class WebGPURenderer {
   }
 
   destroy() {
-    // Release GPU resources
     if (this.txtFlowTexture) this.txtFlowTexture.destroy();
     if (this.bgFlowTexture) this.bgFlowTexture.destroy();
     if (this.textMaskTexture) this.textMaskTexture.destroy();
+    if (this.txtParticleBuffer) this.txtParticleBuffer.destroy();
+    if (this.txtTrailBuffer) this.txtTrailBuffer.destroy();
+    if (this.bgParticleBuffer) this.bgParticleBuffer.destroy();
+    if (this.bgTrailBuffer) this.bgTrailBuffer.destroy();
+    if (this.cellsBuffer) this.cellsBuffer.destroy();
+    if (this.txtUniformBuffer) this.txtUniformBuffer.destroy();
+    if (this.bgUniformBuffer) this.bgUniformBuffer.destroy();
   }
 }
 
