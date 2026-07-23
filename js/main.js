@@ -13,6 +13,27 @@ const recorder = new RecorderManager(canvas);
 
 init(effect, recorder);
 
+(function initPointer() {
+  let pointerDown = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (S.distortion.enabled) {
+      pointerDown = true;
+      S.pointer = { x: e.offsetX, y: e.offsetY, down: true };
+    }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    S.pointer = { x: e.offsetX, y: e.offsetY, down: pointerDown };
+  });
+  canvas.addEventListener('pointerup', () => {
+    pointerDown = false;
+    S.pointer = { ...S.pointer, down: false };
+  });
+  canvas.addEventListener('pointerleave', () => {
+    pointerDown = false;
+    S.pointer = { ...S.pointer, down: false };
+  });
+})();
+
 function drawBgGradient() {
   if (S.bgType === 'solid') {
     ctx.fillStyle = S.bgColor;

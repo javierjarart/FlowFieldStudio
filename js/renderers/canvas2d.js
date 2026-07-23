@@ -111,6 +111,16 @@ class TextParticle {
     } else {
       this._init();
     }
+    if (S.distortion.enabled && S.pointer.down) {
+      const dx = this.x - S.pointer.x;
+      const dy = this.y - S.pointer.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < S.distortion.radius && dist > 0) {
+        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+        this.x += (dx / dist) * force;
+        this.y += (dy / dist) * force;
+      }
+    }
   }
 }
 
@@ -183,6 +193,16 @@ class BgParticle {
       this.history.shift();
     } else {
       this._init();
+    }
+    if (S.distortion.enabled && S.pointer.down) {
+      const dx = this.x - S.pointer.x;
+      const dy = this.y - S.pointer.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < S.distortion.radius && dist > 0) {
+        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+        this.x += (dx / dist) * force;
+        this.y += (dy / dist) * force;
+      }
     }
   }
 }
