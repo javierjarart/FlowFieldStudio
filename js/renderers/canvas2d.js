@@ -65,6 +65,12 @@ class TextParticle {
     if (s.colorMode === 'image')      this.color = cell.color;
     else if (s.colorMode === 'white') this.color = 'rgba(255,255,255,' + s.opacity + ')';
     else                              this.color = s.solidColor;
+    if (s.trailStyle === 'random') {
+      this.style = Math.floor(Math.random() * 4);
+    } else {
+      const idx = ['solid','dashed','dotted','glow'].indexOf(s.trailStyle);
+      this.style = idx >= 0 ? idx : 0;
+    }
   }
   draw(ctx) {
     if (this.history.length < 2) return;
@@ -75,11 +81,18 @@ class TextParticle {
       ctx.globalAlpha = S.txt.opacity;
       ctx.lineWidth = S.txt.lineWidth;
       ctx.strokeStyle = this.color;
+      if (this.style === 1) ctx.setLineDash([8, 6]);
+      else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
+      else if (this.style === 3) { ctx.shadowBlur = 12; ctx.shadowColor = ctx.strokeStyle; }
       ctx.beginPath();
       ctx.moveTo(this.history[0].x, this.history[0].y);
       for (let i = 1; i < this.history.length; i++)
         ctx.lineTo(this.history[i].x, this.history[i].y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineCap = 'butt';
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
     } else {
       const len = this.history.length;
       ctx.fillStyle = this.color;
@@ -143,6 +156,12 @@ class BgParticle {
     this.history  = [{x: this.x, y: this.y}];
     this.timer    = this.maxLen * 2;
     this.color    = s.color;
+    if (s.trailStyle === 'random') {
+      this.style = Math.floor(Math.random() * 4);
+    } else {
+      const idx = ['solid','dashed','dotted','glow'].indexOf(s.trailStyle);
+      this.style = idx >= 0 ? idx : 0;
+    }
   }
   draw(ctx) {
     if (this.history.length < 2) return;
@@ -153,11 +172,18 @@ class BgParticle {
       ctx.globalAlpha = S.bg.opacity;
       ctx.lineWidth = S.bg.lineWidth;
       ctx.strokeStyle = this.color;
+      if (this.style === 1) ctx.setLineDash([8, 6]);
+      else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
+      else if (this.style === 3) { ctx.shadowBlur = 12; ctx.shadowColor = ctx.strokeStyle; }
       ctx.beginPath();
       ctx.moveTo(this.history[0].x, this.history[0].y);
       for (let i = 1; i < this.history.length; i++)
         ctx.lineTo(this.history[i].x, this.history[i].y);
       ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineCap = 'butt';
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
     } else {
       const len = this.history.length;
       ctx.fillStyle = this.color;
