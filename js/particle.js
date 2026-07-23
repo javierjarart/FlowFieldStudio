@@ -1,5 +1,52 @@
 import { S } from './state.js';
 
+function drawShape(ctx, type, x, y, size) {
+  const s = size * 2;
+  ctx.save();
+  ctx.translate(x, y);
+  switch (type) {
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(0, 0, s / 2, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'triangle':
+      ctx.beginPath();
+      ctx.moveTo(0, -s / 2);
+      ctx.lineTo(-s / 2, s / 2);
+      ctx.lineTo(s / 2, s / 2);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'diamond':
+      ctx.beginPath();
+      ctx.moveTo(0, -s / 2);
+      ctx.lineTo(s / 2, 0);
+      ctx.lineTo(0, s / 2);
+      ctx.lineTo(-s / 2, 0);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'star': {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        const r = i % 2 === 0 ? s / 2 : s / 4;
+        i === 0
+          ? ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r)
+          : ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'square':
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      break;
+  }
+  ctx.restore();
+}
+
 export class TextParticle {
   constructor(effect) {
     this.effect = effect;
@@ -24,15 +71,30 @@ export class TextParticle {
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalAlpha     = S.txt.opacity;
-    ctx.lineWidth       = S.txt.lineWidth;
-    ctx.strokeStyle     = this.color;
     ctx.globalCompositeOperation = S.blendMode;
-    ctx.beginPath();
-    ctx.moveTo(this.history[0].x, this.history[0].y);
-    for (let i = 1; i < this.history.length; i++)
-      ctx.lineTo(this.history[i].x, this.history[i].y);
-    ctx.stroke();
+
+    const shape = S.txt.shape;
+    if (shape === 'trail') {
+      ctx.globalAlpha = S.txt.opacity;
+      ctx.lineWidth = S.txt.lineWidth;
+      ctx.strokeStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(this.history[0].x, this.history[0].y);
+      for (let i = 1; i < this.history.length; i++)
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      ctx.stroke();
+    } else {
+      const len = this.history.length;
+      ctx.fillStyle = this.color;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        const alpha = S.txt.opacity * (0.3 + 0.7 * t);
+        const size = S.txt.shapeSize * (0.2 + 0.8 * t);
+        ctx.globalAlpha = alpha;
+        drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
+      }
+    }
+
     ctx.restore();
   }
 
@@ -82,15 +144,30 @@ export class BgParticle {
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalAlpha    = S.bg.opacity;
-    ctx.lineWidth      = S.bg.lineWidth;
-    ctx.strokeStyle    = this.color;
     ctx.globalCompositeOperation = S.blendMode;
-    ctx.beginPath();
-    ctx.moveTo(this.history[0].x, this.history[0].y);
-    for (let i = 1; i < this.history.length; i++)
-      ctx.lineTo(this.history[i].x, this.history[i].y);
-    ctx.stroke();
+
+    const shape = S.bg.shape;
+    if (shape === 'trail') {
+      ctx.globalAlpha = S.bg.opacity;
+      ctx.lineWidth = S.bg.lineWidth;
+      ctx.strokeStyle = this.color;
+      ctx.beginPath();
+      ctx.moveTo(this.history[0].x, this.history[0].y);
+      for (let i = 1; i < this.history.length; i++)
+        ctx.lineTo(this.history[i].x, this.history[i].y);
+      ctx.stroke();
+    } else {
+      const len = this.history.length;
+      ctx.fillStyle = this.color;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        const alpha = S.bg.opacity * (0.3 + 0.7 * t);
+        const size = S.bg.shapeSize * (0.2 + 0.8 * t);
+        ctx.globalAlpha = alpha;
+        drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
+      }
+    }
+
     ctx.restore();
   }
 
