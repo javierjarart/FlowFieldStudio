@@ -8,7 +8,7 @@ const MODULE_ORDER = [
   'event-bus.js',
   'state.js',
   'perlin.js',
-  'particle.js',
+  'renderers/canvas2d.js',
   'effect.js',
   'recorder.js',
   'ui.js',

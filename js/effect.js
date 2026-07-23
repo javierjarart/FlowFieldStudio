@@ -1,6 +1,6 @@
 import { S, bus } from './state.js';
 import { noise } from './perlin.js';
-import { TextParticle, BgParticle } from './particle.js';
+import { Canvas2DRenderer } from './renderers/canvas2d.js';
 
 export class Effect {
   constructor(canvas, ctx) {
@@ -13,10 +13,9 @@ export class Effect {
     this.bgFlowField= [];
     this.textCells  = [];
     this.textMask   = null;
-    this.textParticles = [];
-    this.bgParticles   = [];
     this.rows = 0;
     this.columns = 0;
+    this.renderer = null;
     this._srcImg = null;
 
     window.addEventListener('resize', () => {
@@ -204,8 +203,20 @@ export class Effect {
       }
     }
 
-    this._spawnTextParticles();
-    this._spawnBgParticles();
+    const rendererClass = navigator.gpu
+      ? (await import('./renderers/webgpu.js')).WebGPURenderer
+      : Canvas2DRenderer;
+    this.renderer = new rendererClass(this);
+    try {
+      await this.renderer.init();
+    } catch (e) {
+      console.warn('WebGPU init failed, falling back to Canvas2D:', e);
+      this.renderer = new Canvas2DRenderer(this);
+      this.renderer.init();
+    }
+
+    this.respawnText();
+    this.respawnBg();
     bus.emit('effect:init', this);
   }
 
@@ -243,18 +254,11 @@ export class Effect {
     return this.textMask[row * this.columns + col] > 0;
   }
 
-  _spawnTextParticles() {
-    if (!this.textCells.length) { this.textParticles = []; return; }
-    this.textParticles = Array.from({length: S.txt.count}, () => new TextParticle(this));
-  }
+  respawnText() { if (this.renderer) this.renderer.respawnText(); }
+  respawnBg()   { if (this.renderer) this.renderer.respawnBg(); }
 
-  _spawnBgParticles() {
-    if (!S.bg.enabled) { this.bgParticles = []; return; }
-    this.bgParticles = Array.from({length: S.bg.count}, () => new BgParticle(this));
-  }
-
-  respawnText() { this._spawnTextParticles(); }
-  respawnBg()   { this._spawnBgParticles(); }
+  get textParticles() { return this.renderer ? this.renderer.textParticles : []; }
+  get bgParticles()   { return this.renderer ? this.renderer.bgParticles : []; }
 
   refreshTextFlow() {
     for (let row = 0; row < this.rows; row++) {
@@ -311,6 +315,7 @@ export class Effect {
   resize(w, h) {
     this.canvas.width  = w; this.canvas.height  = h;
     this.width = w; this.height = h;
+    if (this.renderer) this.renderer.resize(w, h);
     this.init();
   }
 
@@ -338,7 +343,8 @@ export class Effect {
       ctx.restore();
     }
 
-    this.bgParticles.forEach(p => { p.draw(ctx); p.update(); });
-    this.textParticles.forEach(p => { p.draw(ctx); p.update(); });
+    if (this.renderer) {
+      this.renderer.render(ctx);
+    }
   }
 }

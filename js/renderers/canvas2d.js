@@ -1,4 +1,4 @@
-import { S } from './state.js';
+import { S } from '../state.js';
 
 function drawShape(ctx, type, x, y, size) {
   const s = size * 2;
@@ -47,12 +47,11 @@ function drawShape(ctx, type, x, y, size) {
   ctx.restore();
 }
 
-export class TextParticle {
+class TextParticle {
   constructor(effect) {
     this.effect = effect;
     this._init();
   }
-
   _init() {
     const ef = this.effect;
     const s  = S.txt;
@@ -67,12 +66,10 @@ export class TextParticle {
     else if (s.colorMode === 'white') this.color = 'rgba(255,255,255,' + s.opacity + ')';
     else                              this.color = s.solidColor;
   }
-
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
     ctx.globalCompositeOperation = S.blendMode;
-
     const shape = S.txt.shape;
     if (shape === 'trail') {
       ctx.globalAlpha = S.txt.opacity;
@@ -94,10 +91,8 @@ export class TextParticle {
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
-
     ctx.restore();
   }
-
   update() {
     this.timer--;
     const ef = this.effect;
@@ -119,12 +114,11 @@ export class TextParticle {
   }
 }
 
-export class BgParticle {
+class BgParticle {
   constructor(effect) {
     this.effect = effect;
     this._init();
   }
-
   _init() {
     const ef = this.effect;
     const s  = S.bg;
@@ -140,12 +134,10 @@ export class BgParticle {
     this.timer    = this.maxLen * 2;
     this.color    = s.color;
   }
-
   draw(ctx) {
     if (this.history.length < 2) return;
     ctx.save();
     ctx.globalCompositeOperation = S.blendMode;
-
     const shape = S.bg.shape;
     if (shape === 'trail') {
       ctx.globalAlpha = S.bg.opacity;
@@ -167,10 +159,8 @@ export class BgParticle {
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
-
     ctx.restore();
   }
-
   update() {
     this.timer--;
     const ef = this.effect;
@@ -194,5 +184,46 @@ export class BgParticle {
     } else {
       this._init();
     }
+  }
+}
+
+export class Canvas2DRenderer {
+  constructor(effect) {
+    this.effect = effect;
+    this.textParticles = [];
+    this.bgParticles = [];
+  }
+
+  init() {}
+
+  spawnText() {
+    if (!this.effect.textCells.length) { this.textParticles = []; return; }
+    this.textParticles = Array.from(
+      { length: S.txt.count },
+      () => new TextParticle(this.effect)
+    );
+  }
+
+  spawnBg() {
+    if (!S.bg.enabled) { this.bgParticles = []; return; }
+    this.bgParticles = Array.from(
+      { length: S.bg.count },
+      () => new BgParticle(this.effect)
+    );
+  }
+
+  respawnText() { this.spawnText(); }
+  respawnBg()   { this.spawnBg(); }
+
+  render(ctx) {
+    this.bgParticles.forEach(p => { p.draw(ctx); p.update(); });
+    this.textParticles.forEach(p => { p.draw(ctx); p.update(); });
+  }
+
+  resize(w, h) {}
+
+  destroy() {
+    this.textParticles = [];
+    this.bgParticles = [];
   }
 }
