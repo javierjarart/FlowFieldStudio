@@ -23,6 +23,7 @@ class IdleState {
 
       this.mgr.recorder.onstop = () => {
         this.mgr.transitionTo(new ExportingState(this.mgr));
+        this.mgr.state.done();
       };
 
       this.mgr.recorder.onerror = () => {
