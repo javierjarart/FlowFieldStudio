@@ -1,7 +1,7 @@
 import { S, bus, hexToRgb } from './state.js';
 import { Effect } from './effect.js';
 import { RecorderManager } from './recorder.js';
-import { init as initUI } from './ui.js';
+import { init } from './ui.js';
 
 const canvas = document.getElementById('canvas1');
 const ctx    = canvas.getContext('2d');
@@ -11,7 +11,7 @@ canvas.height = window.innerHeight;
 const effect = new Effect(canvas, ctx);
 const recorder = new RecorderManager(canvas);
 
-initUI(effect, recorder);
+init(effect, recorder);
 
 effect.init().then(() => {
   let frameCount = 0, lastT = 0, fps = 60;

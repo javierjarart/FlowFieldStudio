@@ -1,11 +1,11 @@
 import { S, bus } from './state.js';
 
-let effect = null;
-let recorder = null;
+let _effect = null;
+let _recorder = null;
 
 export function init(effectInstance, recorderInstance) {
-  effect = effectInstance;
-  recorder = recorderInstance;
+  _effect = effectInstance;
+  _recorder = recorderInstance;
 
   bindTabs();
   bindPanelToggle();
@@ -92,7 +92,7 @@ function bindSourceMode() {
     const imgCtrls  = document.getElementById('imageSourceControls');
     if (textCtrls) textCtrls.style.display = 'block';
     if (imgCtrls)  imgCtrls.style.display  = 'none';
-    effect.init();
+    _effect.init();
   });
 
   imgBtn.addEventListener('click', () => {
@@ -103,7 +103,7 @@ function bindSourceMode() {
     const imgCtrls  = document.getElementById('imageSourceControls');
     if (textCtrls) textCtrls.style.display = 'none';
     if (imgCtrls)  imgCtrls.style.display  = 'block';
-    effect.init();
+    _effect.init();
   });
 }
 
@@ -163,7 +163,7 @@ function bindImageControls() {
       const img = new Image();
       img.onload = () => {
         S.bgImage = img;
-        effect.init();
+        _effect.init();
       };
       img.src = ev.target.result;
     };
@@ -179,7 +179,7 @@ function bindImageControls() {
 
 // ── Particle sliders ──────────────────────────────────────────────────
 function bindParticleSliders() {
-  bindSlider('txtCount',    'txtCountVal',    0,   v => { S.txt.count    = v; effect.respawnText(); });
+  bindSlider('txtCount',    'txtCountVal',    0,   v => { S.txt.count    = v; _effect.respawnText(); });
   bindSlider('txtSpeedMin', 'txtSpeedMinVal', 1,   v => { S.txt.speedMin = v; });
   bindSlider('txtSpeedMax', 'txtSpeedMaxVal', 1,   v => { S.txt.speedMax = v; });
   bindSlider('txtBoost',    'txtBoostVal',    1,   v => { S.txt.boost    = v; });
@@ -187,8 +187,8 @@ function bindParticleSliders() {
   bindSlider('txtTrailMax', 'txtTrailMaxVal', 0,   v => { S.txt.trailMax = v; });
   bindSlider('txtLine',     'txtLineVal',     1,   v => { S.txt.lineWidth= v; });
   bindSlider('txtOpac',     'txtOpacVal',     2,   v => { S.txt.opacity  = v; });
-  bindSlider('txtNoise',    'txtNoiseVal',    0,   v => { S.txt.noiseScale=v; effect.refreshTextFlow(); });
-  bindSlider('txtAngle',    'txtAngleVal',    2,   v => { S.txt.angleMult = v; effect.refreshTextFlow(); });
+  bindSlider('txtNoise',    'txtNoiseVal',    0,   v => { S.txt.noiseScale=v; _effect.refreshTextFlow(); });
+  bindSlider('txtAngle',    'txtAngleVal',    2,   v => { S.txt.angleMult = v; _effect.refreshTextFlow(); });
 }
 
 function bindParticleColorMode() {
@@ -196,7 +196,7 @@ function bindParticleColorMode() {
     S.txt.colorMode = val;
     const solidRow = document.getElementById('txtSolidColorRow');
     if (solidRow) solidRow.style.display = val === 'solid' ? 'block' : 'none';
-    effect.textParticles.forEach(p => {
+    _effect.textParticles.forEach(p => {
       if (val === 'white')       p.color = 'rgba(255,255,255,1)';
       else if (val === 'solid')  p.color = S.txt.solidColor;
     });
@@ -207,16 +207,16 @@ function bindParticleColorMode() {
     solidColor.addEventListener('input', e => {
       S.txt.solidColor = e.target.value;
       if (S.txt.colorMode === 'solid')
-        effect.textParticles.forEach(p => { p.color = S.txt.solidColor; });
+        _effect.textParticles.forEach(p => { p.color = S.txt.solidColor; });
     });
   }
 }
 
 // ── Background controls ───────────────────────────────────────────────
 function bindBgControls() {
-  bindToggle('bgEnabled', v => { S.bg.enabled = v; effect.respawnBg(); });
+  bindToggle('bgEnabled', v => { S.bg.enabled = v; _effect.respawnBg(); });
 
-  bindSlider('bgCount',    'bgCountVal',    0,  v => { S.bg.count    = v; effect.respawnBg(); });
+  bindSlider('bgCount',    'bgCountVal',    0,  v => { S.bg.count    = v; _effect.respawnBg(); });
   bindSlider('bgSpeedMin', 'bgSpeedMinVal', 1,  v => { S.bg.speedMin = v; });
   bindSlider('bgSpeedMax', 'bgSpeedMaxVal', 1,  v => { S.bg.speedMax = v; });
   bindSlider('bgTrailMin', 'bgTrailMinVal', 0,  v => { S.bg.trailMin = v; });
@@ -228,13 +228,13 @@ function bindBgControls() {
   if (bgColor) {
     bgColor.addEventListener('input', e => {
       S.bg.color = e.target.value;
-      effect.bgParticles.forEach(p => { p.color = S.bg.color; });
+      _effect.bgParticles.forEach(p => { p.color = S.bg.color; });
     });
   }
 
   bindToggle('bgAvoidText', v => { S.bg.avoidText = v; });
-  bindSlider('bgNoise',  'bgNoiseVal',  0,  v => { S.bg.noiseScale = v; effect.refreshBgFlow(); });
-  bindSlider('bgAngle',  'bgAngleVal',  2,  v => { S.bg.angleMult  = v; effect.refreshBgFlow(); });
+  bindSlider('bgNoise',  'bgNoiseVal',  0,  v => { S.bg.noiseScale = v; _effect.refreshBgFlow(); });
+  bindSlider('bgAngle',  'bgAngleVal',  2,  v => { S.bg.angleMult  = v; _effect.refreshBgFlow(); });
 }
 
 // ── Fx controls ───────────────────────────────────────────────────────
@@ -252,10 +252,10 @@ function bindFxControls() {
 // ── Apply & Reinit ────────────────────────────────────────────────────
 function bindApplyAndReinit() {
   const applyBtn = document.getElementById('applyBtn');
-  if (applyBtn) applyBtn.addEventListener('click', () => { effect.init(); });
+  if (applyBtn) applyBtn.addEventListener('click', () => { _effect.init(); });
 
   const reinitBtn = document.getElementById('reinitBtn');
-  if (reinitBtn) reinitBtn.addEventListener('click', () => { effect.init(); });
+  if (reinitBtn) reinitBtn.addEventListener('click', () => { _effect.init(); });
 }
 
 // ── Export ────────────────────────────────────────────────────────────
@@ -350,8 +350,8 @@ function bindRecording() {
   const elapsed  = document.getElementById('recElapsed');
   if (!startBtn || !stopBtn) return;
 
-  startBtn.addEventListener('click', () => recorder.start());
-  stopBtn.addEventListener('click', () => recorder.stop());
+  startBtn.addEventListener('click', () => _recorder.start());
+  stopBtn.addEventListener('click', () => _recorder.stop());
 
   bus.on('recorder:state', ({ state }) => {
     startBtn.style.display = state === 'IDLE' ? '' : 'none';
@@ -364,8 +364,8 @@ function bindRecording() {
   });
 
   setInterval(() => {
-    if (recorder.isRecording && elapsed) {
-      const sec = Math.floor(recorder.elapsed / 1000);
+    if (_recorder.isRecording && elapsed) {
+      const sec = Math.floor(_recorder.elapsed / 1000);
       const m = String(Math.floor(sec / 60)).padStart(2, '0');
       const s = String(sec % 60).padStart(2, '0');
       elapsed.textContent = `${m}:${s}`;
