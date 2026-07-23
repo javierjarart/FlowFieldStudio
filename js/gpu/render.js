@@ -85,15 +85,11 @@ export const WGSL_TRAIL_FRAG = `
 @fragment
 fn trailFragment(input: VertexOutput) -> @location(0) vec4<f32> {
   var color = input.color;
-  if (input.style == 1u) {
-    let dashPos = fract(input.segT * 20.0);
-    if (dashPos > 0.5) { discard; }
-  }
-  if (input.style == 2u) {
-    let dotPos = fract(input.segT * 30.0);
-    if (dotPos > 0.3) { discard; }
-  }
-  if (input.style == 3u) {
+  if (input.style == 1u && fract(input.segT * 20.0) > 0.5) {
+    color.a = 0.0;
+  } else if (input.style == 2u && fract(input.segT * 30.0) > 0.3) {
+    color.a = 0.0;
+  } else if (input.style == 3u) {
     color.a *= 0.7;
   }
   return color;

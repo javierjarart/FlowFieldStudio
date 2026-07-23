@@ -69,6 +69,15 @@ window.addEventListener('resize', () => {
   drawBgGradient();
 });
 
+let cachedBgStyle = 'rgba(0,0,0,0.05)';
+
+bus.on('state:change', ({ key }) => {
+  if (key === 'S.bgColor' || key === 'S.fadeAlpha') {
+    const [r,g,b] = hexToRgb(S.bgColor);
+    cachedBgStyle = `rgba(${r},${g},${b},${S.fadeAlpha})`;
+  }
+});
+
 effect.init().then(() => {
   drawBgGradient();
 
@@ -86,8 +95,7 @@ effect.init().then(() => {
       if (pbgBadge) pbgBadge.textContent  = effect.bgParticles.length;
     }
 
-    const [r,g,b] = hexToRgb(S.bgColor);
-    ctx.fillStyle = `rgba(${r},${g},${b},${S.fadeAlpha})`;
+    ctx.fillStyle = cachedBgStyle;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     effect.render(ctx);
