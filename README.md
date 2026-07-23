@@ -1,4 +1,4 @@
-# Flow Field · Source Engine
+# Flow Field Studio
 
 Generador de partículas con flow fields a partir de texto o imágenes. Renderiza en canvas con WebGL (Captura de Video).
 
