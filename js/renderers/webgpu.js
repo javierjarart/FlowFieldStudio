@@ -105,9 +105,9 @@ export class WebGPURenderer {
     this._createMaskBuffer();
 
     this._unsubscribe = bus.on('state:change', ({ key }) => {
-      if (key === 'S.fadeAlpha') return;
-      this._updateRenderUniforms();
-      if (key && (key.startsWith('S.txt.') || key.startsWith('S.bg.'))) {
+      if (!key) return;
+      if (key === 'S.txt.noiseScale' || key === 'S.txt.angleMult' ||
+          key === 'S.bg.noiseScale'  || key === 'S.bg.angleMult') {
         this._refreshFlowTextures();
       }
     });

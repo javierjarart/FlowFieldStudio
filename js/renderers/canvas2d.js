@@ -72,14 +72,14 @@ class TextParticle {
       this.style = idx >= 0 ? idx : 0;
     }
   }
-  draw(ctx) {
+  draw(ctx, blendMode, s) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalCompositeOperation = S.blendMode;
-    const shape = S.txt.shape;
+    ctx.globalCompositeOperation = blendMode;
+    const shape = s.shape;
     if (shape === 'trail') {
-      ctx.globalAlpha = S.txt.opacity;
-      ctx.lineWidth = S.txt.lineWidth;
+      ctx.globalAlpha = s.opacity;
+      ctx.lineWidth = s.lineWidth;
       ctx.strokeStyle = this.color;
       if (this.style === 1) ctx.setLineDash([8, 6]);
       else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
@@ -98,15 +98,15 @@ class TextParticle {
       ctx.fillStyle = this.color;
       for (let i = 0; i < len; i++) {
         const t = i / len;
-        const alpha = S.txt.opacity * (0.3 + 0.7 * t);
-        const size = S.txt.shapeSize * (0.2 + 0.8 * t);
+        const alpha = s.opacity * (0.3 + 0.7 * t);
+        const size = s.shapeSize * (0.2 + 0.8 * t);
         ctx.globalAlpha = alpha;
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
     ctx.restore();
   }
-  update() {
+  update(txtBoost, pushActive, distort, ptr) {
     this.timer--;
     const ef = this.effect;
     if (this.timer >= 1) {
@@ -114,7 +114,7 @@ class TextParticle {
       const row   = Math.max(0, Math.min(Math.floor(this.y / ef.cellSize), ef.rows - 1));
       const field = ef.flowField[row * ef.columns + col];
       const angle = field ? field.angle : 0;
-      const boost = (field && field.inText) ? S.txt.boost : 1;
+      const boost = (field && field.inText) ? txtBoost : 1;
       this.x += Math.cos(angle) * this.speedMod * boost;
       this.y += Math.sin(angle) * this.speedMod * boost;
       this.history.push({x: this.x, y: this.y});
@@ -124,12 +124,12 @@ class TextParticle {
     } else {
       this._init();
     }
-    if (S.distortion.enabled && S.pointer.down) {
-      const dx = this.x - S.pointer.x;
-      const dy = this.y - S.pointer.y;
+    if (pushActive) {
+      const dx = this.x - ptr.x;
+      const dy = this.y - ptr.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < S.distortion.radius && dist > 0) {
-        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+      if (dist < distort.radius && dist > 0) {
+        const force = distort.strength * (1 - dist / distort.radius);
         this.x += (dx / dist) * force;
         this.y += (dy / dist) * force;
       }
@@ -163,14 +163,14 @@ class BgParticle {
       this.style = idx >= 0 ? idx : 0;
     }
   }
-  draw(ctx) {
+  draw(ctx, blendMode, s) {
     if (this.history.length < 2) return;
     ctx.save();
-    ctx.globalCompositeOperation = S.blendMode;
-    const shape = S.bg.shape;
+    ctx.globalCompositeOperation = blendMode;
+    const shape = s.shape;
     if (shape === 'trail') {
-      ctx.globalAlpha = S.bg.opacity;
-      ctx.lineWidth = S.bg.lineWidth;
+      ctx.globalAlpha = s.opacity;
+      ctx.lineWidth = s.lineWidth;
       ctx.strokeStyle = this.color;
       if (this.style === 1) ctx.setLineDash([8, 6]);
       else if (this.style === 2) { ctx.setLineDash([2, 6]); ctx.lineCap = 'round'; }
@@ -189,25 +189,24 @@ class BgParticle {
       ctx.fillStyle = this.color;
       for (let i = 0; i < len; i++) {
         const t = i / len;
-        const alpha = S.bg.opacity * (0.3 + 0.7 * t);
-        const size = S.bg.shapeSize * (0.2 + 0.8 * t);
+        const alpha = s.opacity * (0.3 + 0.7 * t);
+        const size = s.shapeSize * (0.2 + 0.8 * t);
         ctx.globalAlpha = alpha;
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
     ctx.restore();
   }
-  update() {
+  update(avoidText, pushActive, distort, ptr) {
     this.timer--;
     const ef = this.effect;
-    const s  = S.bg;
     if (this.timer >= 1) {
       const col   = Math.max(0, Math.min(Math.floor(this.x / ef.cellSize), ef.columns - 1));
       const row   = Math.max(0, Math.min(Math.floor(this.y / ef.cellSize), ef.rows - 1));
       const field = ef.bgFlowField[row * ef.columns + col];
       const angle = field ? field.angle : 0;
       const inText = ef.isTextZone(this.x, this.y);
-      const speed  = (s.avoidText && inText) ? this.speedMod * 0.1 : this.speedMod;
+      const speed  = (avoidText && inText) ? this.speedMod * 0.1 : this.speedMod;
       this.x += Math.cos(angle) * speed;
       this.y += Math.sin(angle) * speed;
       this.history.push({x: this.x, y: this.y});
@@ -220,12 +219,12 @@ class BgParticle {
     } else {
       this._init();
     }
-    if (S.distortion.enabled && S.pointer.down) {
-      const dx = this.x - S.pointer.x;
-      const dy = this.y - S.pointer.y;
+    if (pushActive) {
+      const dx = this.x - ptr.x;
+      const dy = this.y - ptr.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < S.distortion.radius && dist > 0) {
-        const force = S.distortion.strength * (1 - dist / S.distortion.radius);
+      if (dist < distort.radius && dist > 0) {
+        const force = distort.strength * (1 - dist / distort.radius);
         this.x += (dx / dist) * force;
         this.y += (dy / dist) * force;
       }
@@ -262,8 +261,23 @@ export class Canvas2DRenderer {
   respawnBg()   { this.spawnBg(); }
 
   render(ctx) {
-    this.bgParticles.forEach(p => { p.draw(ctx); p.update(); });
-    this.textParticles.forEach(p => { p.draw(ctx); p.update(); });
+    const txt = S.txt, bg = S.bg, blendMode = S.blendMode;
+    const distort = S.distortion, ptr = S.pointer;
+    const pushActive = distort.enabled && ptr.down;
+    const txtBoost = txt.boost, bgAvoidText = bg.avoidText;
+
+    const bgl = this.bgParticles;
+    for (let i = 0; i < bgl.length; i++) {
+      const p = bgl[i];
+      p.draw(ctx, blendMode, bg);
+      p.update(bgAvoidText, pushActive, distort, ptr);
+    }
+    const txtl = this.textParticles;
+    for (let i = 0; i < txtl.length; i++) {
+      const p = txtl[i];
+      p.draw(ctx, blendMode, txt);
+      p.update(txtBoost, pushActive, distort, ptr);
+    }
   }
 
   resize(w, h) {}
