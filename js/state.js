@@ -52,6 +52,7 @@ export const S = reactive({
     boost:       3,
     shape:       'trail',
     shapeSize:   1.0,
+    trailStyle:  'random',
   },
 
   bg: {
@@ -69,6 +70,7 @@ export const S = reactive({
     angleMult:   2,
     shape:       'trail',
     shapeSize:   0.8,
+    trailStyle:  'random',
   },
 
   fadeAlpha:  0.05,
@@ -83,6 +85,18 @@ export const S = reactive({
 
   recording: false,
   recorderFps: 30,
+
+  distortion: {
+    enabled: true,
+    radius: 120,
+    strength: 3,
+  },
+  pointer: { x: 0, y: 0, down: false },
+  bgType: 'solid',
+  bgGradient: {
+    colors: ['#000000', '#1a1a2e', '#16213e'],
+    dir: 'v',
+  },
 });
 
 export function hexToRgb(hex) {
