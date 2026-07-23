@@ -172,6 +172,29 @@ hr.divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin:
 }
 #fab:hover { background: rgba(30,30,45,0.9); color: #fff; }
 body:has(#panel.collapsed) #fab { display: flex; }
+
+@media (max-width: 767px) {
+  #panel {
+    top: auto; right: auto; bottom: 0; left: 0;
+    width: 100%; max-height: 65vh;
+    border-radius: 14px 14px 0 0; border-bottom: none;
+    transform: translateY(calc(100% + 24px));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 200;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+  }
+  #panel:not(.collapsed) { transform: translateY(0); }
+  #panel.collapsed { display: flex; transform: translateY(calc(100% + 24px)); }
+  #panel-header::before {
+    content: ''; display: block; width: 32px; height: 4px;
+    background: rgba(255,255,255,0.25); border-radius: 2px;
+    margin: 0 auto 6px;
+  }
+  #togglePanel { font-size: 18px; padding: 4px 6px; }
+  #fab { display: flex !important; }
+  #hud { transition: bottom 0.3s cubic-bezier(0.4,0,0.2,1); z-index: 201; }
+  body:has(#panel:not(.collapsed)) #hud { bottom: calc(65vh + 12px); }
+}
 </style>
 </head>
 <body>
@@ -2830,18 +2853,27 @@ function bindPanelToggle() {
   const toggleBtn = document.getElementById('togglePanel');
   const fab = document.getElementById('fab');
   if (!panelEl || !toggleBtn) return;
+
+  const IS_MOBILE = window.matchMedia('(max-width: 767px)').matches;
+
   const update = () => {
     const collapsed = panelEl.classList.contains('collapsed');
-    toggleBtn.textContent = collapsed ? '▼' : '▲';
+    if (IS_MOBILE) {
+      toggleBtn.textContent = collapsed ? '⚙' : '✕';
+    } else {
+      toggleBtn.textContent = collapsed ? '▼' : '▲';
+    }
     toggleBtn.title = collapsed ? 'Abrir panel' : 'Cerrar panel';
   };
+
   toggleBtn.addEventListener('click', () => {
     panelEl.classList.toggle('collapsed');
     update();
   });
+
   if (fab) {
     fab.addEventListener('click', () => {
-      panelEl.classList.remove('collapsed');
+      panelEl.classList.toggle('collapsed');
       update();
     });
   }
@@ -3160,6 +3192,7 @@ function bindRecording() {
 
 // ── Panel draggable ────────────────────────────────────────────────────
 function bindPanelDrag() {
+  if (window.matchMedia('(max-width: 767px)').matches) return;
   const panel = document.getElementById('panel');
   const header = document.getElementById('panel-header');
   if (!panel || !header) return;

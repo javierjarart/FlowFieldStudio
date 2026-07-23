@@ -76,18 +76,27 @@ function bindPanelToggle() {
   const toggleBtn = document.getElementById('togglePanel');
   const fab = document.getElementById('fab');
   if (!panelEl || !toggleBtn) return;
+
+  const IS_MOBILE = window.matchMedia('(max-width: 767px)').matches;
+
   const update = () => {
     const collapsed = panelEl.classList.contains('collapsed');
-    toggleBtn.textContent = collapsed ? '▼' : '▲';
+    if (IS_MOBILE) {
+      toggleBtn.textContent = collapsed ? '⚙' : '✕';
+    } else {
+      toggleBtn.textContent = collapsed ? '▼' : '▲';
+    }
     toggleBtn.title = collapsed ? 'Abrir panel' : 'Cerrar panel';
   };
+
   toggleBtn.addEventListener('click', () => {
     panelEl.classList.toggle('collapsed');
     update();
   });
+
   if (fab) {
     fab.addEventListener('click', () => {
-      panelEl.classList.remove('collapsed');
+      panelEl.classList.toggle('collapsed');
       update();
     });
   }
@@ -406,6 +415,7 @@ function bindRecording() {
 
 // ── Panel draggable ────────────────────────────────────────────────────
 function bindPanelDrag() {
+  if (window.matchMedia('(max-width: 767px)').matches) return;
   const panel = document.getElementById('panel');
   const header = document.getElementById('panel-header');
   if (!panel || !header) return;
