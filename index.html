@@ -1036,9 +1036,183 @@ class Canvas2DRenderer {
 }
 
 
-const WGSL_RENDER_VERT = '';
-const WGSL_RENDER_FRAG = '';
-// render pipeline setup will go here
+const WGSL_TRAIL_VERT = `
+struct Uniforms {
+  cellSize       : f32,
+  txtOpacity     : f32,
+  txtLineWidth   : f32,
+  bgOpacity      : f32,
+  bgLineWidth    : f32,
+  canvasWidth    : f32,
+  canvasHeight   : f32,
+  txtShapeSize   : f32,
+  bgShapeSize    : f32,
+  maxTrail       : u32,
+  shapeMode      : u32,
+  _pad1          : u32,
+  _pad2          : u32,
+  _pad3          : u32,
+  _pad4          : u32,
+  _pad5          : u32,
+};
+
+struct Particle {
+  pos    : vec2<f32>,
+  prev   : vec2<f32>,
+  dir    : vec2<f32>,
+  params : vec4<u32>,
+  color  : vec4<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) position: vec4<f32>,
+  @location(0) color: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> uni: Uniforms;
+@group(0) @binding(1) var<storage, read> particles: array<Particle>;
+@group(0) @binding(2) var<storage, read> trail: array<vec2<f32>>;
+
+struct TrailSegment {
+  @builtin(vertex_index) vertIdx: u32,
+  @builtin(instance_index) instIdx: u32,
+};
+
+@vertex
+fn trailVertex(input: TrailSegment) -> VertexOutput {
+  let particleIdx = input.instIdx / (uni.maxTrail - 1u);
+  let segmentIdx = input.instIdx % (uni.maxTrail - 1u);
+  let p = particles[particleIdx];
+  let cursor = p.params.z;
+  let maxLen = max(p.params.y, 1u);
+  let isBg = p.params.w;
+
+  let slotA = (cursor + segmentIdx) % maxLen;
+  let slotB = (cursor + segmentIdx + 1u) % maxLen;
+  let a = trail[particleIdx * uni.maxTrail + slotA];
+  let b = trail[particleIdx * uni.maxTrail + slotB];
+
+  let dir = normalize(b - a);
+  let perp = vec2(-dir.y, dir.x);
+  let side = f32(input.vertIdx % 2u) * 2.0 - 1.0;
+
+  let width = select(uni.txtLineWidth, uni.bgLineWidth, isBg > 0u);
+  let pos = (input.vertIdx < 2u) ? a : b;
+  let vertexPos = pos + perp * side * width * 0.5;
+
+  let ndcX = (vertexPos.x / uni.canvasWidth) * 2.0 - 1.0;
+  let ndcY = -((vertexPos.y / uni.canvasHeight) * 2.0 - 1.0);
+
+  let t = f32(segmentIdx) / f32(maxLen);
+  let alpha = 1.0 - t;
+
+  var output: VertexOutput;
+  output.position = vec4(ndcX, ndcY, 0.0, 1.0);
+  output.color = vec4(p.color.rgb, p.color.a * alpha);
+  return output;
+}
+`;
+
+const WGSL_TRAIL_FRAG = `
+@fragment
+fn trailFragment(input: VertexOutput) -> @location(0) vec4<f32> {
+  return input.color;
+}
+`;
+
+const WGSL_FADE_VERT = `
+struct VertexOutput {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+};
+@vertex
+fn main(@builtin(vertex_index) vi: u32) -> VertexOutput {
+  const pos = array(
+    vec2(-1.0, -1.0), vec2( 3.0, -1.0), vec2(-1.0,  3.0),
+  );
+  const uv = array(
+    vec2( 0.0,  0.0), vec2( 2.0,  0.0), vec2( 0.0,  2.0),
+  );
+  var out: VertexOutput;
+  out.pos = vec4(pos[vi], 0.0, 1.0);
+  out.uv = uv[vi];
+  return out;
+}
+`;
+
+const WGSL_FADE_FRAG = `
+struct Uniforms {
+  fadeAlpha: f32,
+  _pad1: f32,
+  _pad2: f32,
+  _pad3: f32,
+};
+@group(0) @binding(0) var<uniform> uni: Uniforms;
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+  return vec4(0.0, 0.0, 0.0, uni.fadeAlpha);
+}
+`;
+
+function createTrailPipeline(device, format) {
+  const shader = device.createShaderModule({
+    code: WGSL_TRAIL_VERT + '\n' + WGSL_TRAIL_FRAG,
+  });
+
+  const pipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module: shader,
+      entryPoint: 'trailVertex',
+    },
+    fragment: {
+      module: shader,
+      entryPoint: 'trailFragment',
+      targets: [{
+        format,
+        blend: {
+          color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+          alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+        },
+      }],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+  });
+
+  return pipeline;
+}
+
+function createFadePipeline(device, format) {
+  const shader = device.createShaderModule({
+    code: WGSL_FADE_VERT + '\n' + WGSL_FADE_FRAG,
+  });
+
+  const pipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module: shader,
+      entryPoint: 'main',
+    },
+    fragment: {
+      module: shader,
+      entryPoint: 'main',
+      targets: [{
+        format,
+        blend: {
+          color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+          alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+        },
+      }],
+    },
+    primitive: {
+      topology: 'triangle-list',
+    },
+  });
+
+  return pipeline;
+}
 
 
 
@@ -1254,8 +1428,12 @@ class WebGPURenderer {
     this.textParticles = [];
     this.bgParticles = [];
     this.computePipeline = null;
+    this.trailPipeline = null;
+    this.fadePipeline = null;
     this.txtUniformBuffer = null;
     this.bgUniformBuffer = null;
+    this.renderUniformBuffer = null;
+    this.fadeUniformBuffer = null;
     this.cellsBuffer = null;
     this.txtParticleBuffer = null;
     this.txtTrailBuffer = null;
@@ -1265,6 +1443,9 @@ class WebGPURenderer {
     this.bgParticleCount = 0;
     this.txtBindGroup = null;
     this.bgBindGroup = null;
+    this.txtTrailBindGroup = null;
+    this.bgTrailBindGroup = null;
+    this.fadeBindGroup = null;
   }
 
   async init() {
@@ -1289,6 +1470,26 @@ class WebGPURenderer {
     this.bgUniformBuffer = this.device.createBuffer({
       size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    this.renderUniformBuffer = this.device.createBuffer({
+      size: 64,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    this.fadeUniformBuffer = this.device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    this.trailPipeline = createTrailPipeline(this.device, this.format);
+    this.fadePipeline = createFadePipeline(this.device, this.format);
+
+    this.fadeBindGroup = this.device.createBindGroup({
+      layout: this.fadePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.fadeUniformBuffer } },
+      ],
     });
 
     this._createFlowFieldTexture();
@@ -1431,6 +1632,45 @@ class WebGPURenderer {
     });
   }
 
+  _makeTrailBindGroup(particleBuffer, trailBuffer) {
+    return this.device.createBindGroup({
+      layout: this.trailPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.renderUniformBuffer } },
+        { binding: 1, resource: { buffer: particleBuffer } },
+        { binding: 2, resource: { buffer: trailBuffer } },
+      ],
+    });
+  }
+
+  _updateRenderUniforms() {
+    const ef = this.effect;
+    const data = new ArrayBuffer(64);
+    const f32 = new Float32Array(data);
+    const u32 = new Uint32Array(data);
+
+    f32[0] = ef.cellSize;
+    f32[1] = S.txt.opacity;
+    f32[2] = S.txt.lineWidth;
+    f32[3] = S.bg.opacity;
+    f32[4] = S.bg.lineWidth;
+    f32[5] = ef.width;
+    f32[6] = ef.height;
+    f32[7] = S.txt.shapeSize;
+    f32[8] = S.bg.shapeSize;
+    u32[9] = MAX_TRAIL;
+    u32[10] = 0; // shapeMode
+
+    this.device.queue.writeBuffer(this.renderUniformBuffer, 0, data);
+  }
+
+  _updateFadeUniforms() {
+    const data = new ArrayBuffer(16);
+    const f32 = new Float32Array(data);
+    f32[0] = S.fadeAlpha;
+    this.device.queue.writeBuffer(this.fadeUniformBuffer, 0, data);
+  }
+
   spawnText() {
     if (!this.effect.textCells || !this.effect.textCells.length) {
       this.txtParticleCount = 0;
@@ -1442,6 +1682,7 @@ class WebGPURenderer {
     this.txtTrailBuffer = trail;
     this.txtParticleCount = count;
     this.txtBindGroup = this._makeBindGroup(this.txtUniformBuffer, particles, trail);
+    this.txtTrailBindGroup = this._makeTrailBindGroup(particles, trail);
   }
 
   spawnBg() {
@@ -1455,6 +1696,7 @@ class WebGPURenderer {
     this.bgTrailBuffer = trail;
     this.bgParticleCount = count;
     this.bgBindGroup = this._makeBindGroup(this.bgUniformBuffer, particles, trail);
+    this.bgTrailBindGroup = this._makeTrailBindGroup(particles, trail);
   }
 
   respawnText() { this.spawnText(); }
@@ -1468,13 +1710,11 @@ class WebGPURenderer {
     pass.setPipeline(this.computePipeline);
 
     if (this.txtParticleCount) {
-      this._writeUniforms(this.txtUniformBuffer, this.txtParticleCount);
       pass.setBindGroup(0, this.txtBindGroup);
       pass.dispatchWorkgroups(Math.ceil(this.txtParticleCount / 256));
     }
 
     if (this.bgParticleCount) {
-      this._writeUniforms(this.bgUniformBuffer, this.bgParticleCount);
       pass.setBindGroup(0, this.bgBindGroup);
       pass.dispatchWorkgroups(Math.ceil(this.bgParticleCount / 256));
     }
@@ -1483,8 +1723,63 @@ class WebGPURenderer {
     this.device.queue.submit([encoder.finish()]);
   }
 
+  _updateUniforms() {
+    if (this.txtParticleCount) {
+      this._writeUniforms(this.txtUniformBuffer, this.txtParticleCount);
+    }
+    if (this.bgParticleCount) {
+      this._writeUniforms(this.bgUniformBuffer, this.bgParticleCount);
+    }
+  }
+
   render(ctx) {
+    if (!this.device) return;
+
+    this._updateUniforms();
+    this._updateRenderUniforms();
+    this._updateFadeUniforms();
     this._dispatchCompute();
+
+    const encoder = this.device.createCommandEncoder();
+
+    const colorAttachment = {
+      view: this.context.getCurrentTexture().createView(),
+      loadOp: 'load',
+      storeOp: 'store',
+    };
+
+    // Fade pass
+    const fadePass = encoder.beginRenderPass({
+      colorAttachments: [colorAttachment],
+    });
+    fadePass.setPipeline(this.fadePipeline);
+    fadePass.setBindGroup(0, this.fadeBindGroup);
+    fadePass.draw(3);
+    fadePass.end();
+
+    // Trail pass (txt)
+    if (this.txtParticleCount > 0 && this.txtTrailBindGroup) {
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{ ...colorAttachment }],
+      });
+      pass.setPipeline(this.trailPipeline);
+      pass.setBindGroup(0, this.txtTrailBindGroup);
+      pass.draw(6, this.txtParticleCount * (MAX_TRAIL - 1));
+      pass.end();
+    }
+
+    // Trail pass (bg)
+    if (this.bgParticleCount > 0 && this.bgTrailBindGroup) {
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{ ...colorAttachment }],
+      });
+      pass.setPipeline(this.trailPipeline);
+      pass.setBindGroup(0, this.bgTrailBindGroup);
+      pass.draw(6, this.bgParticleCount * (MAX_TRAIL - 1));
+      pass.end();
+    }
+
+    this.device.queue.submit([encoder.finish()]);
   }
 
   resize(w, h) {
@@ -1508,6 +1803,8 @@ class WebGPURenderer {
     if (this.cellsBuffer) this.cellsBuffer.destroy();
     if (this.txtUniformBuffer) this.txtUniformBuffer.destroy();
     if (this.bgUniformBuffer) this.bgUniformBuffer.destroy();
+    if (this.renderUniformBuffer) this.renderUniformBuffer.destroy();
+    if (this.fadeUniformBuffer) this.fadeUniformBuffer.destroy();
   }
 }
 
