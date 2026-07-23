@@ -76,7 +76,8 @@ fn reseed(p: ptr<function, Particle>, seed: ptr<function, u32>, isBg: u32) {
                    uni.bgSpeedMin + randFloat(seed) * (uni.bgSpeedMax - uni.bgSpeedMin),
                    isBg > 0u);
   (*p).dir = vec2(cos(a), sin(a));
-  (*p).params = vec4(10u, 10u, 0u, isBg);
+  let trailStyle = u32(randFloat(seed) * 3.999);
+  (*p).params = vec4(10u, 10u, 0u, isBg | (trailStyle << 1u));
 }
 
 @compute @workgroup_size(256)
@@ -172,7 +173,8 @@ export function createParticleBuffers(device, effect, count, isBg, maxTrail = 64
     uintView[base + 8] = trailLen * 2;
     uintView[base + 9] = trailLen;
     uintView[base + 10] = 0;
-    uintView[base + 11] = isBg ? 1 : 0;
+    const trailStyle = Math.floor(Math.random() * 4);
+    uintView[base + 11] = (isBg ? 1 : 0) | (trailStyle << 1);
 
     floatView[base + 12] = 1;
     floatView[base + 13] = 1;

@@ -29,6 +29,8 @@ struct Particle {
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) color: vec4<f32>,
+  @location(1) segT: f32,
+  @location(2) style: u32,
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniforms;
@@ -47,7 +49,9 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
   let p = particles[particleIdx];
   let cursor = p.params.z;
   let maxLen = max(p.params.y, 1u);
-  let isBg = p.params.w;
+  let raw = p.params.w;
+  let isBg = raw & 1u;
+  let style = (raw >> 1u) & 3u;
 
   let slotA = (cursor + segmentIdx) % maxLen;
   let slotB = (cursor + segmentIdx + 1u) % maxLen;
@@ -71,6 +75,8 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
   var output: VertexOutput;
   output.position = vec4(ndcX, ndcY, 0.0, 1.0);
   output.color = vec4(p.color.rgb, p.color.a * alpha);
+  output.segT = f32(segmentIdx) / f32(maxLen);
+  output.style = style;
   return output;
 }
 `;
@@ -78,7 +84,19 @@ fn trailVertex(input: TrailSegment) -> VertexOutput {
 export const WGSL_TRAIL_FRAG = `
 @fragment
 fn trailFragment(input: VertexOutput) -> @location(0) vec4<f32> {
-  return input.color;
+  var color = input.color;
+  if (input.style == 1u) {
+    let dashPos = fract(input.segT * 20.0);
+    if (dashPos > 0.5) { discard; }
+  }
+  if (input.style == 2u) {
+    let dotPos = fract(input.segT * 30.0);
+    if (dotPos > 0.3) { discard; }
+  }
+  if (input.style == 3u) {
+    color.a *= 0.7;
+  }
+  return color;
 }
 `;
 
