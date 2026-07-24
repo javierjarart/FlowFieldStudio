@@ -24,6 +24,9 @@ Renderiza en tiempo real con WebGPU (o Canvas2D como fallback). Captura de video
 | **Estilos de trail** | Sólido, dashed, dotted, glow — asignados aleatoriamente por partícula |
 | **Formas** | Círculo, triángulo, diamante, estrella, cuadrado (por partícula, sobre la historia de posiciones) |
 | **Interacción** | Arrastrar el mouse empuja las partículas (push distortion, radio/ fuerza configurables) |
+| **Audio reactivo** | Captura de micrófono, análisis FFT en 3 bandas, mapeo banda→parámetro, detección de beat |
+| **Modulación (LFO)** | Osciladores (seno, cuadrada, sierra, triángulo) que modulan cualquier parámetro en tiempo real |
+| **Post-procesado** | Bloom, aberración cromática, viñeta, grano de película (Canvas2D, extensible a WebGPU) |
 | **Renderizado** | WebGPU (compute + render shaders WGSL) con fallback automático a Canvas2D |
 | **Fondo** | Color sólido, degradado lineal o radial |
 | **Grabación** | WebM VP9 a 15 Mbps, descarga automática |
@@ -65,17 +68,20 @@ python3 -m http.server 8080
 ## Panel de control
 
 | Pestaña | Controles |
-|---|---|
+|---|---|---|
 | **ORÍGEN** | Texto, fuente, tamaño, color, imagen, bleed radius, export HTML |
 | **PARTÍCULAS** | Cantidad, velocidad, boost, trail, grosor, opacidad, forma, color, ruido, ángulo |
 | **P.FONDO** | Partículas de fondo: toggle, cantidad, velocidad, trail, opacidad, color, evitación de texto, ruido |
-| **EFECTOS** | Color de fondo, fade/persistencia, blend mode, grabación, debug, cell size, reinicializar |
+| **EFECTOS** | Color de fondo, fade/persistencia, blend mode, **post-procesado** (bloom, CA, viñeta, grano), grabación, debug, cell size, reinicializar |
+| **AUDIO** | Conectar micrófono, umbral de beat, mapeo de banda (bass/mid/treble) a parámetro con rango min/max, medidores visuales |
+| **MOD** | Añadir/eliminar LFOs, forma de onda, frecuencia, amplitud, offset, target, osciloscopio en vivo |
 
 ## Tech Stack
 
 - **Vanilla JS** ES modules (sin frameworks ni dependencias)
 - **WebGPU** + **WGSL** para renderizado acelerado (compute shader + trail/shape/fade/debug pipelines)
-- **Canvas2D** como fallback universal
+- **Canvas2D** como fallback universal (incl. post-procesado)
+- **Web Audio API** para captura de micrófono, análisis FFT y detección de beat
 - **Ruido Perlin** clásico para generación de flow fields
 - **MediaRecorder API** para captura de video WebM
 - **Build**: script Node.js que emsambla todos los módulos en un `<script>` inline
@@ -87,10 +93,13 @@ js/
 ├── event-bus.js        — Pub/sub event system
 ├── state.js            — Estado reactivo (Proxy) con emisión automática de cambios
 ├── perlin.js           — Ruido Perlin 2D
+├── audio.js            — AudioManager: mic capture, FFT, beat detection, band→param mapping
+├── lfo.js              — LFO + LFOManager: waveform oscillators que modulan parámetros
 ├── effect.js           — Orquestador: flow field, selección de renderer, resize
 ├── main.js             — Entry point: canvas, loop de animación, eventos, fullscreen
 ├── ui.js               — Bindings del panel: sliders, toggles, pestañas, export, grabación
 ├── recorder.js         — Grabación de video (máquina de estados)
+├── postprocess.js      — PostProcessor: bloom, CA, vignette, film grain (Canvas2D fallback)
 ├── renderers/
 │   ├── canvas2d.js     — Renderer Canvas2D (TextParticle, BgParticle)
 │   └── webgpu.js       — Renderer WebGPU (compute + pipelines)
