@@ -1,7 +1,11 @@
 import { S, bus } from './state.js';
+import { LFO } from './lfo.js';
 
 let _effect = null;
 let _recorder = null;
+let _audioManager = null;
+let _lfoManager = null;
+let _postProcessor = null;
 
 export function init(effectInstance, recorderInstance) {
   _effect = effectInstance;
@@ -19,11 +23,18 @@ export function init(effectInstance, recorderInstance) {
   bindBgControls();
   bindBgShape();
   bindFxControls();
+  bindPostControls();
+  bindAudioControls();
+  bindLFOControls();
   bindExport();
   bindRecording();
   bindApplyAndReinit();
   bindPanelDrag();
 }
+
+export function wireAudio(audioMgr) { _audioManager = audioMgr; }
+export function wireLFO(lfoMgr) { _lfoManager = lfoMgr; _lfoManager.initFromState(); }
+export function wirePost(postProc) { _postProcessor = postProc; }
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function bindSlider(id, valId, decimals, onChange) {
@@ -411,6 +422,286 @@ function bindRecording() {
       elapsed.textContent = `${m}:${s}`;
     }
   }, 500);
+}
+
+// ── Post-processing controls ──────────────────────────────────────────
+function bindPostControls() {
+  bindToggle('postEnabled', v => { S.post.enabled = v; });
+  bindToggle('postBloom', v => { S.post.bloom.enabled = v; });
+  bindToggle('postCA', v => { S.post.ca.enabled = v; });
+  bindToggle('postVignette', v => { S.post.vignette.enabled = v; });
+  bindToggle('postGrain', v => { S.post.grain.enabled = v; });
+  bindSlider('postBloomIntensity', 'postBloomIntensityVal', 2, v => { S.post.bloom.intensity = v; });
+  bindSlider('postBloomRadius', 'postBloomRadiusVal', 0, v => { S.post.bloom.radius = v; });
+  bindSlider('postCAAmount', 'postCAAmountVal', 1, v => { S.post.ca.amount = v; });
+  bindSlider('postVignetteIntensity', 'postVignetteIntensityVal', 2, v => { S.post.vignette.intensity = v; });
+  bindSlider('postGrainIntensity', 'postGrainIntensityVal', 3, v => { S.post.grain.intensity = v; });
+}
+
+// ── Audio controls ────────────────────────────────────────────────────
+function bindAudioControls() {
+  const micBtn = document.getElementById('audioMicBtn');
+  if (micBtn) {
+    micBtn.addEventListener('click', async () => {
+      if (_audioManager && _audioManager.enabled) {
+        _audioManager.stop();
+        micBtn.textContent = '\u25cf Conectar microfono';
+        micBtn.classList.remove('active', 'danger');
+        const bars = ['audioBassBar','audioMidBar','audioTrebleBar'];
+        bars.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      } else if (_audioManager) {
+        micBtn.textContent = '\u25b6 Conectando...';
+        await _audioManager.start();
+        micBtn.textContent = '\u25cf Desconectar';
+        micBtn.classList.add('active');
+        const bars = ['audioBassBar','audioMidBar','audioTrebleBar'];
+        bars.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+      }
+    });
+  }
+
+  bindSlider('audioSensitivity', 'audioSensitivityVal', 2, v => { S.audio.sensitivity = v; });
+
+  function bindBandMapping(band) {
+    const targetSel = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Target');
+    const minSl = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Min');
+    const maxSl = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Max');
+    const minVal = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'MinVal');
+    const maxVal = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'MaxVal');
+
+    const mapping = S.audio.mapping.find(m => m.band === band);
+    if (!mapping) return;
+
+    if (targetSel) {
+      targetSel.value = mapping.target;
+      targetSel.addEventListener('change', e => { mapping.target = e.target.value; });
+    }
+    if (minSl && minVal) {
+      minSl.value = mapping.min;
+      minVal.textContent = mapping.min;
+      minSl.addEventListener('input', () => {
+        const v = parseFloat(minSl.value);
+        mapping.min = v;
+        minVal.textContent = v;
+      });
+    }
+    if (maxSl && maxVal) {
+      maxSl.value = mapping.max;
+      maxVal.textContent = mapping.max;
+      maxSl.addEventListener('input', () => {
+        const v = parseFloat(maxSl.value);
+        mapping.max = v;
+        maxVal.textContent = v;
+      });
+    }
+  }
+
+  bindBandMapping('bass');
+  bindBandMapping('mid');
+  bindBandMapping('treble');
+
+  bus.on('frame', () => {
+    if (!_audioManager || !_audioManager.enabled || !S.audio.enabled) return;
+    const bands = _audioManager.bands;
+    const barIds = [
+      { id: 'audioBassBar', val: bands.bass || 0 },
+      { id: 'audioMidBar', val: bands.mid || 0 },
+      { id: 'audioTrebleBar', val: bands.treble || 0 },
+    ];
+    for (const { id, val } of barIds) {
+      const el = document.getElementById(id);
+      if (el) {
+        const inner = el.querySelector('div');
+        if (inner) inner.style.width = (val * 100) + '%';
+      }
+    }
+  });
+}
+
+// ── LFO controls ──────────────────────────────────────────────────────
+function bindLFOControls() {
+  const addBtn = document.getElementById('lfoAddBtn');
+  const listEl = document.getElementById('lfoList');
+  if (!addBtn || !listEl) return;
+
+  document.querySelector('[data-tab="tab-mod"]')?.addEventListener('click', () => {
+    renderLFOList();
+  });
+
+  const TARGETS = [
+    { value: 'txt.speedMax', label: 'Velocidad max' },
+    { value: 'txt.speedMin', label: 'Velocidad min' },
+    { value: 'txt.boost', label: 'Boost origen' },
+    { value: 'txt.noiseScale', label: 'Escala ruido txt' },
+    { value: 'txt.angleMult', label: 'Angulo txt' },
+    { value: 'txt.lineWidth', label: 'Grosor trail' },
+    { value: 'txt.opacity', label: 'Opacidad txt' },
+    { value: 'txt.shapeSize', label: 'Tamano forma txt' },
+    { value: 'bg.speedMax', label: 'Vel. fondo max' },
+    { value: 'bg.noiseScale', label: 'Escala ruido bg' },
+    { value: 'bg.angleMult', label: 'Angulo bg' },
+    { value: 'bg.lineWidth', label: 'Grosor bg' },
+    { value: 'bg.opacity', label: 'Opacidad bg' },
+    { value: 'fadeAlpha', label: 'Fade' },
+  ];
+
+  function renderLFOList() {
+    if (!_lfoManager) return;
+    listEl.innerHTML = '';
+    _lfoManager.lfos.forEach((lfo, idx) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#1a1a28; border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:8px; margin-bottom:6px;';
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
+
+      const title = document.createElement('span');
+      title.textContent = 'LFO ' + (idx + 1);
+      title.style.cssText = 'font-weight:600; font-size:10px; color:#8ad;';
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none; border:none; color:#d96c6c; cursor:pointer; font-size:12px;';
+      delBtn.addEventListener('click', () => {
+        _lfoManager.removeLFO(lfo.id);
+        S.lfos = _lfoManager.lfos.map(l => ({ ...l }));
+        renderLFOList();
+      });
+
+      header.appendChild(title);
+      header.appendChild(delBtn);
+      card.appendChild(header);
+
+      // Waveform selector
+      const waveRow = document.createElement('div');
+      waveRow.style.cssText = 'display:flex; gap:4px; margin-bottom:4px;';
+      ['sine','square','saw','triangle'].forEach(w => {
+        const btn = document.createElement('button');
+        btn.textContent = w;
+        btn.className = 'ctrl';
+        if (w === lfo.waveform) btn.classList.add('active');
+        btn.style.cssText = 'flex:1; padding:3px 4px; font-size:9px;';
+        btn.addEventListener('click', () => {
+          lfo.waveform = w;
+          _lfoManager.syncToState();
+          renderLFOList();
+        });
+        waveRow.appendChild(btn);
+      });
+      card.appendChild(waveRow);
+
+      // Target selector
+      const targetSel = document.createElement('select');
+      targetSel.innerHTML = TARGETS.map(t =>
+        `<option value="${t.value}"${t.value === lfo.target ? ' selected' : ''}>${t.label}</option>`
+      ).join('');
+      targetSel.style.cssText = 'width:100%; margin-bottom:4px;';
+      targetSel.addEventListener('change', e => {
+        lfo.target = e.target.value;
+        _lfoManager.syncToState();
+      });
+      card.appendChild(targetSel);
+
+      // Enable toggle
+      const toggleRow = document.createElement('div');
+      toggleRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;';
+      const toggleLabel = document.createElement('span');
+      toggleLabel.textContent = 'Activo';
+      toggleLabel.style.cssText = 'font-size:10px; color:rgba(255,255,255,0.6);';
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'toggle' + (lfo.enabled ? ' on' : '');
+      toggleBtn.addEventListener('click', () => {
+        lfo.enabled = !lfo.enabled;
+        toggleBtn.classList.toggle('on');
+        _lfoManager.syncToState();
+      });
+      toggleRow.appendChild(toggleLabel);
+      toggleRow.appendChild(toggleBtn);
+      card.appendChild(toggleRow);
+
+      // Frequency slider
+      card.appendChild(makeSlider('Freq', lfo, 'frequency', 0.05, 10, 0.05, 2));
+      // Amplitude slider
+      card.appendChild(makeSlider('Amp', lfo, 'amplitude', 0, 5, 0.1, 1));
+      // Offset slider
+      card.appendChild(makeSlider('Offset', lfo, 'offset', -5, 5, 0.1, 1));
+
+      // Oscilloscope mini preview
+      const scope = document.createElement('canvas');
+      scope.width = 260; scope.height = 24;
+      scope.style.cssText = 'width:100%; height:24px; border-radius:3px; margin-top:4px; background:#0a0a14;';
+      card.appendChild(scope);
+      lfo._scopeCanvas = scope;
+      lfo._scopeCtx = scope.getContext('2d');
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function makeSlider(label, lfo, key, min, max, step, decimals) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:4px;';
+    const lbl = document.createElement('label');
+    lbl.textContent = label + ' ';
+    lbl.style.cssText = 'font-size:9.5px; color:rgba(255,255,255,0.5);';
+    const valSpan = document.createElement('span');
+    valSpan.className = 'badge';
+    valSpan.style.cssText = 'font-size:9px; color:#8ad;';
+    valSpan.textContent = lfo[key].toFixed(decimals);
+    lbl.appendChild(valSpan);
+    row.appendChild(lbl);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'row-val';
+    const sl = document.createElement('input');
+    sl.type = 'range';
+    sl.min = min; sl.max = max; sl.step = step;
+    sl.value = lfo[key];
+    sl.style.cssText = 'width:100%;';
+    sl.addEventListener('input', () => {
+      const v = parseFloat(sl.value);
+      lfo[key] = v;
+      valSpan.textContent = v.toFixed(decimals);
+      _lfoManager.syncToState();
+    });
+    wrapper.appendChild(sl);
+    row.appendChild(wrapper);
+    return row;
+  }
+
+  addBtn.addEventListener('click', () => {
+    if (!_lfoManager) return;
+    _lfoManager.addLFO({ target: 'txt.speedMax', frequency: 0.5, amplitude: 2, offset: 2 });
+    renderLFOList();
+  });
+
+  bus.on('frame', () => {
+    if (!_lfoManager) return;
+    for (const lfo of _lfoManager.lfos) {
+      if (!lfo._scopeCtx || !lfo.enabled) continue;
+      const c = lfo._scopeCtx;
+      const w = c.canvas.width, h = c.canvas.height;
+      c.clearRect(0, 0, w, h);
+      c.strokeStyle = '#6c9ed9';
+      c.lineWidth = 1;
+      c.beginPath();
+      for (let x = 0; x < w; x++) {
+        const t = x / w * 2;
+        const fn = lfo._waveformFn || (() => 0);
+        const phase = t + (lfo._phase || 0);
+        let raw = 0;
+        switch (lfo.waveform) {
+          case 'sine': raw = Math.sin(phase * Math.PI * 2); break;
+          case 'square': raw = Math.sin(phase * Math.PI * 2) >= 0 ? 1 : -1; break;
+          case 'saw': raw = ((phase * 2) % 2) - 1; break;
+          case 'triangle': raw = Math.abs(((phase * 2) % 2) - 1) * 2 - 1; break;
+        }
+        const y = h / 2 + raw * (h / 2 - 2);
+        x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+      }
+      c.stroke();
+    }
+  });
 }
 
 // ── Panel draggable ────────────────────────────────────────────────────

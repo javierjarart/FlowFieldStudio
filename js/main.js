@@ -1,7 +1,10 @@
 import { S, bus, hexToRgb } from './state.js';
 import { Effect } from './effect.js';
 import { RecorderManager } from './recorder.js';
-import { init } from './ui.js';
+import { init, wireAudio, wireLFO, wirePost } from './ui.js';
+import { AudioManager } from './audio.js';
+import { LFOManager } from './lfo.js';
+import { PostProcessor } from './postprocess.js';
 
 const canvas = document.getElementById('canvas1');
 const ctx    = canvas.getContext('2d');
@@ -10,8 +13,14 @@ canvas.height = window.innerHeight;
 
 const effect = new Effect(canvas, ctx);
 const recorder = new RecorderManager(canvas);
+const audioManager = new AudioManager();
+const lfoManager = new LFOManager();
+const postProcessor = new PostProcessor();
 
 init(effect, recorder);
+wireAudio(audioManager);
+wireLFO(lfoManager);
+wirePost(postProcessor);
 
 (function initPointer() {
   let pointerDown = false;
@@ -98,9 +107,12 @@ bus.on('state:change', ({ key }) => {
 effect.init().then(() => {
   drawBgGradient();
 
-  let frameCount = 0, lastT = 0, fps = 60;
+  let frameCount = 0, lastT = 0, prevTime = 0, fps = 60;
 
   function animate(t) {
+    const dt = prevTime ? Math.min((t - prevTime) / 1000, 0.05) : 0.016;
+    prevTime = t;
+
     frameCount++;
     if (t - lastT >= 1000) {
       fps = frameCount; frameCount = 0; lastT = t;
@@ -112,10 +124,14 @@ effect.init().then(() => {
       if (pbgBadge) pbgBadge.textContent  = effect.bgParticles.length;
     }
 
+    audioManager.update();
+    lfoManager.update(dt);
+
     ctx.fillStyle = cachedBgStyle;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     effect.render(ctx);
+    postProcessor.render(ctx, canvas.width, canvas.height);
     bus.emit('frame', { canvas, ctx });
 
     requestAnimationFrame(animate);

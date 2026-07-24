@@ -97,6 +97,27 @@ export const S = reactive({
     colors: ['#000000', '#1a1a2e', '#16213e'],
     dir: 'v',
   },
+
+  audio: {
+    enabled: false,
+    sensitivity: 0.5,
+    smoothing: 0.8,
+    mapping: [
+      { band: 'bass',   target: 'txt.speedMax',  min: 0.5, max: 5 },
+      { band: 'mid',    target: 'txt.noiseScale', min: 100, max: 2000 },
+      { band: 'treble', target: 'txt.angleMult',  min: 0.5, max: 8 },
+    ],
+  },
+
+  post: {
+    enabled: false,
+    bloom:     { enabled: false, intensity: 0.5, threshold: 0.7, radius: 4 },
+    ca:        { enabled: false, amount: 2 },
+    vignette:  { enabled: false, intensity: 0.3, roundness: 1.0 },
+    grain:     { enabled: false, intensity: 0.05 },
+  },
+
+  lfos: [],
 });
 
 export function hexToRgb(hex) {

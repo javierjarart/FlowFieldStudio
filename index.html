@@ -212,6 +212,8 @@ body:has(#panel.collapsed) #fab { display: flex; }
     <button class="tab-btn" data-tab="tab-txt-p">PARTÍCULAS</button>
     <button class="tab-btn" data-tab="tab-bg-p">P.FONDO</button>
     <button class="tab-btn" data-tab="tab-fx">EFECTOS</button>
+    <button class="tab-btn" data-tab="tab-audio">AUDIO</button>
+    <button class="tab-btn" data-tab="tab-mod">MOD</button>
   </div>
 
   <div id="panel-body">
@@ -636,6 +638,64 @@ body:has(#panel.collapsed) #fab { display: flex; }
       </div>
 
       <div class="group">
+        <div class="group-title">Post-procesado</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Activar post-procesado</span>
+          <button class="toggle" id="postEnabled"></button>
+        </div>
+        <hr class="divider">
+        <div class="toggle-row">
+          <span class="toggle-label">Bloom</span>
+          <button class="toggle" id="postBloom"></button>
+        </div>
+        <div class="row">
+          <label>Intensidad bloom <span id="postBloomIntensityVal" class="badge">0.5</span></label>
+          <div class="row-val">
+            <input type="range" id="postBloomIntensity" min="0" max="1" step="0.05" value="0.5">
+          </div>
+        </div>
+        <div class="row">
+          <label>Radio blur <span id="postBloomRadiusVal" class="badge">4</span></label>
+          <div class="row-val">
+            <input type="range" id="postBloomRadius" min="1" max="20" step="1" value="4">
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="toggle-row">
+          <span class="toggle-label">Aberracion cromatica</span>
+          <button class="toggle" id="postCA"></button>
+        </div>
+        <div class="row">
+          <label>Desplazamiento <span id="postCAAmountVal" class="badge">2</span></label>
+          <div class="row-val">
+            <input type="range" id="postCAAmount" min="0" max="10" step="0.5" value="2">
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="toggle-row">
+          <span class="toggle-label">Vinetas</span>
+          <button class="toggle" id="postVignette"></button>
+        </div>
+        <div class="row">
+          <label>Intensidad <span id="postVignetteIntensityVal" class="badge">0.3</span></label>
+          <div class="row-val">
+            <input type="range" id="postVignetteIntensity" min="0" max="1" step="0.05" value="0.3">
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="toggle-row">
+          <span class="toggle-label">Grano de pelicula</span>
+          <button class="toggle" id="postGrain"></button>
+        </div>
+        <div class="row">
+          <label>Intensidad <span id="postGrainIntensityVal" class="badge">0.05</span></label>
+          <div class="row-val">
+            <input type="range" id="postGrainIntensity" min="0" max="0.3" step="0.005" value="0.05">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
         <div class="group-title">Debug</div>
         <div class="toggle-row">
           <span class="toggle-label">Mostrar grilla de celdas</span>
@@ -658,6 +718,162 @@ body:has(#panel.collapsed) #fab { display: flex; }
         <div class="btn-row" style="margin-top:6px;">
           <button class="ctrl" id="reinitBtn">&#x21bb; Reinicializar campo</button>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB AUDIO -->
+    <div class="tab-pane" id="tab-audio">
+      <div class="group">
+        <div class="group-title">Microfono</div>
+        <div class="row">
+          <div class="btn-row">
+            <button class="ctrl" id="audioMicBtn">&#x25cf; Conectar microfono</button>
+          </div>
+          <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:2px;">
+            Usa getUserMedia para capturar audio en tiempo real.
+          </label>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Sensibilidad</div>
+        <div class="row">
+          <label>Umbral beat <span id="audioSensitivityVal" class="badge">0.5</span></label>
+          <div class="row-val">
+            <input type="range" id="audioSensitivity" min="0" max="1" step="0.05" value="0.5">
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Mapeo de bandas</div>
+        <div class="row">
+          <label style="color: #6c9ed9;">Bajos</label>
+          <select id="audioBassTarget" style="margin-bottom:3px;">
+            <option value="txt.speedMax">Velocidad max</option>
+            <option value="txt.speedMin">Velocidad min</option>
+            <option value="txt.boost">Boost origen</option>
+            <option value="txt.noiseScale">Escala ruido txt</option>
+            <option value="txt.angleMult">Angulo txt</option>
+            <option value="txt.lineWidth">Grosor trail</option>
+            <option value="txt.opacity">Opacidad txt</option>
+            <option value="txt.shapeSize">Tamano forma txt</option>
+            <option value="bg.speedMax">Vel. fondo max</option>
+            <option value="bg.noiseScale">Escala ruido bg</option>
+            <option value="bg.angleMult">Angulo bg</option>
+            <option value="bg.lineWidth">Grosor bg</option>
+            <option value="bg.opacity">Opacidad bg</option>
+            <option value="fadeAlpha">Fade</option>
+          </select>
+          <div style="display:flex; gap:4px;">
+            <div style="flex:1;">
+              <label style="font-size:9px;">Min <span id="audioBassMinVal" class="badge">0.5</span></label>
+              <input type="range" id="audioBassMin" min="0" max="10" step="0.1" value="0.5">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:9px;">Max <span id="audioBassMaxVal" class="badge">5</span></label>
+              <input type="range" id="audioBassMax" min="0" max="20" step="0.1" value="5">
+            </div>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="row">
+          <label style="color: #d98c6c;">Medios</label>
+          <select id="audioMidTarget" style="margin-bottom:3px;">
+            <option value="txt.noiseScale">Escala ruido txt</option>
+            <option value="txt.speedMax">Velocidad max</option>
+            <option value="txt.speedMin">Velocidad min</option>
+            <option value="txt.boost">Boost origen</option>
+            <option value="txt.angleMult">Angulo txt</option>
+            <option value="txt.lineWidth">Grosor trail</option>
+            <option value="txt.opacity">Opacidad txt</option>
+            <option value="txt.shapeSize">Tamano forma txt</option>
+            <option value="bg.speedMax">Vel. fondo max</option>
+            <option value="bg.noiseScale">Escala ruido bg</option>
+            <option value="bg.angleMult">Angulo bg</option>
+            <option value="bg.lineWidth">Grosor bg</option>
+            <option value="bg.opacity">Opacidad bg</option>
+            <option value="fadeAlpha">Fade</option>
+          </select>
+          <div style="display:flex; gap:4px;">
+            <div style="flex:1;">
+              <label style="font-size:9px;">Min <span id="audioMidMinVal" class="badge">100</span></label>
+              <input type="range" id="audioMidMin" min="0" max="2000" step="10" value="100">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:9px;">Max <span id="audioMidMaxVal" class="badge">2000</span></label>
+              <input type="range" id="audioMidMax" min="0" max="3000" step="10" value="2000">
+            </div>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="row">
+          <label style="color: #8ad;">Agudos</label>
+          <select id="audioTrebleTarget" style="margin-bottom:3px;">
+            <option value="txt.angleMult">Angulo txt</option>
+            <option value="txt.speedMax">Velocidad max</option>
+            <option value="txt.speedMin">Velocidad min</option>
+            <option value="txt.boost">Boost origen</option>
+            <option value="txt.noiseScale">Escala ruido txt</option>
+            <option value="txt.lineWidth">Grosor trail</option>
+            <option value="txt.opacity">Opacidad txt</option>
+            <option value="txt.shapeSize">Tamano forma txt</option>
+            <option value="bg.speedMax">Vel. fondo max</option>
+            <option value="bg.noiseScale">Escala ruido bg</option>
+            <option value="bg.angleMult">Angulo bg</option>
+            <option value="bg.lineWidth">Grosor bg</option>
+            <option value="bg.opacity">Opacidad bg</option>
+            <option value="fadeAlpha">Fade</option>
+          </select>
+          <div style="display:flex; gap:4px;">
+            <div style="flex:1;">
+              <label style="font-size:9px;">Min <span id="audioTrebleMinVal" class="badge">0.5</span></label>
+              <input type="range" id="audioTrebleMin" min="0" max="12" step="0.25" value="0.5">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:9px;">Max <span id="audioTrebleMaxVal" class="badge">8</span></label>
+              <input type="range" id="audioTrebleMax" min="0" max="12" step="0.25" value="8">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Indicadores</div>
+        <div style="display:flex; gap:8px;">
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:9px; color:#6c9ed9;">BAJOS</div>
+            <div id="audioBassBar" style="height:4px; background:#2a2a3a; border-radius:2px; margin-top:4px;">
+              <div style="width:0%; height:100%; background:#6c9ed9; border-radius:2px; transition:width 0.05s;"></div>
+            </div>
+          </div>
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:9px; color:#d98c6c;">MEDIOS</div>
+            <div id="audioMidBar" style="height:4px; background:#2a2a3a; border-radius:2px; margin-top:4px;">
+              <div style="width:0%; height:100%; background:#d98c6c; border-radius:2px; transition:width 0.05s;"></div>
+            </div>
+          </div>
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:9px; color:#8ad;">AGUDOS</div>
+            <div id="audioTrebleBar" style="height:4px; background:#2a2a3a; border-radius:2px; margin-top:4px;">
+              <div style="width:0%; height:100%; background:#8ad; border-radius:2px; transition:width 0.05s;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB MOD -->
+    <div class="tab-pane" id="tab-mod">
+      <div class="group">
+        <div class="group-title">LFOs</div>
+        <div id="lfoList"></div>
+        <div class="btn-row">
+          <button class="ctrl" id="lfoAddBtn">+ Agregar LFO</button>
+        </div>
+        <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:4px; display:block;">
+          Cada LFO modula un parametro con forma de onda.
+        </label>
       </div>
     </div>
 
@@ -801,6 +1017,27 @@ const S = reactive({
     colors: ['#000000', '#1a1a2e', '#16213e'],
     dir: 'v',
   },
+
+  audio: {
+    enabled: false,
+    sensitivity: 0.5,
+    smoothing: 0.8,
+    mapping: [
+      { band: 'bass',   target: 'txt.speedMax',  min: 0.5, max: 5 },
+      { band: 'mid',    target: 'txt.noiseScale', min: 100, max: 2000 },
+      { band: 'treble', target: 'txt.angleMult',  min: 0.5, max: 8 },
+    ],
+  },
+
+  post: {
+    enabled: false,
+    bloom:     { enabled: false, intensity: 0.5, threshold: 0.7, radius: 4 },
+    ca:        { enabled: false, amount: 2 },
+    vignette:  { enabled: false, intensity: 0.3, roundness: 1.0 },
+    grain:     { enabled: false, intensity: 0.05 },
+  },
+
+  lfos: [],
 });
 
 function hexToRgb(hex) {
@@ -840,6 +1077,212 @@ function noise(x, y) {
     _lerp(u, _grad(_p[a], x, y), _grad(_p[b], x - 1, y)),
     _lerp(u, _grad(_p[a + 1], x, y - 1), _grad(_p[b + 1], x - 1, y - 1))
   ) * 0.5 + 0.5;
+}
+
+
+
+class AudioManager {
+  constructor() {
+    this.ctx = null;
+    this.analyser = null;
+    this.source = null;
+    this.stream = null;
+    this.dataArray = null;
+    this.bands = { bass: 0, mid: 0, treble: 0 };
+    this.beat = false;
+    this._beatPrev = 0;
+    this._enabled = false;
+  }
+
+  async start() {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, echoCancellation: true });
+      this.ctx = new AudioContext();
+      this.source = this.ctx.createMediaStreamSource(this.stream);
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = S.audio.smoothing || 0.8;
+      this.source.connect(this.analyser);
+      this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+      this._saveBaseValues();
+      this._enabled = true;
+      S.audio.enabled = true;
+      bus.emit('audio:ready');
+    } catch (e) {
+      console.warn('Audio mic error:', e);
+      bus.emit('audio:error', e);
+    }
+  }
+
+  stop() {
+    this._restoreBaseValues();
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    if (this.ctx) { this.ctx.close(); this.ctx = null; }
+    this.analyser = null;
+    this.source = null;
+    this.dataArray = null;
+    this._enabled = false;
+    S.audio.enabled = false;
+  }
+
+  get enabled() { return this._enabled; }
+
+  update() {
+    if (!this._enabled || !this.analyser || !S.audio.enabled) return;
+    this.analyser.getByteFrequencyData(this.dataArray);
+    const len = this.dataArray.length;
+    const bassEnd = Math.max(1, Math.floor(len * 0.1));
+    const midEnd = Math.max(bassEnd + 1, Math.floor(len * 0.4));
+
+    let bassSum = 0, midSum = 0, trebleSum = 0;
+    for (let i = 0; i < len; i++) {
+      const v = this.dataArray[i];
+      if (i < bassEnd) bassSum += v;
+      else if (i < midEnd) midSum += v;
+      else trebleSum += v;
+    }
+    const SCALE = 1 / 255;
+    this.bands.bass = Math.min(1, (bassSum / bassEnd) * SCALE);
+    this.bands.mid = Math.min(1, (midSum / Math.max(1, midEnd - bassEnd)) * SCALE);
+    this.bands.treble = Math.min(1, (trebleSum / Math.max(1, len - midEnd)) * SCALE);
+
+    const bass = this.bands.bass;
+    const threshold = 0.5 + (S.audio.sensitivity || 0.5) * 0.4;
+    const wasBeat = this.beat;
+    this.beat = bass > threshold && this._beatPrev <= threshold;
+    this._beatPrev = bass;
+    if (this.beat && !wasBeat) bus.emit('audio:beat');
+
+    this._applyMapping(S.audio.mapping || []);
+  }
+
+  _applyMapping(mappings) {
+    for (const m of mappings) {
+      const val = this.bands[m.band];
+      if (val === undefined) continue;
+      const mapped = m.min + val * (m.max - m.min);
+      const path = m.target.split('.');
+      let obj = S;
+      for (let i = 0; i < path.length - 1; i++) {
+        obj = obj[path[i]];
+        if (!obj) break;
+      }
+      if (obj && typeof obj[path[path.length - 1]] === 'number') {
+        obj[path[path.length - 1]] = mapped;
+      }
+    }
+  }
+
+  _saveBaseValues() {
+    this._baseValues = {};
+    for (const m of (S.audio.mapping || [])) {
+      const path = m.target.split('.');
+      let obj = S;
+      for (let i = 0; i < path.length; i++) {
+        if (obj == null) break;
+        if (i === path.length - 1) this._baseValues[m.target] = obj[path[i]];
+        else obj = obj[path[i]];
+      }
+    }
+  }
+
+  _restoreBaseValues() {
+    if (!this._baseValues) return;
+    for (const [target, val] of Object.entries(this._baseValues)) {
+      const path = target.split('.');
+      let obj = S;
+      for (let i = 0; i < path.length - 1; i++) {
+        obj = obj[path[i]];
+        if (!obj) break;
+      }
+      if (obj && typeof obj[path[path.length - 1]] === 'number') {
+        obj[path[path.length - 1]] = val;
+      }
+    }
+    this._baseValues = null;
+  }
+
+  destroy() { this.stop(); }
+}
+
+
+
+let _nextId = 1;
+
+const _WAVEFORMS = {
+  sine:     t => Math.sin(t * Math.PI * 2),
+  square:   t => Math.sin(t * Math.PI * 2) >= 0 ? 1 : -1,
+  saw:      t => ((t * 2) % 2) - 1,
+  triangle: t => Math.abs(((t * 2) % 2) - 1) * 2 - 1,
+};
+
+class LFO {
+  constructor(cfg = {}) {
+    this.id = cfg.id != null ? cfg.id : _nextId++;
+    this.waveform = cfg.waveform || 'sine';
+    this.frequency = cfg.frequency || 0.5;
+    this.amplitude = cfg.amplitude || 1;
+    this.offset = cfg.offset || 0;
+    this.target = cfg.target || '';
+    this.enabled = cfg.enabled !== false;
+    this._phase = 0;
+  }
+
+  update(dt) {
+    if (!this.enabled || !this.target) return;
+    this._phase += dt * this.frequency;
+    const fn = _WAVEFORMS[this.waveform] || _WAVEFORMS.sine;
+    const raw = fn(this._phase);
+    const val = raw * this.amplitude + this.offset;
+    const path = this.target.split('.');
+    let obj = S;
+    for (let i = 0; i < path.length - 1; i++) {
+      obj = obj[path[i]];
+      if (!obj) return;
+    }
+    const lastKey = path[path.length - 1];
+    if (obj && typeof obj[lastKey] === 'number') {
+      obj[lastKey] = val;
+    }
+  }
+}
+
+class LFOManager {
+  constructor() {
+    this.lfos = [];
+  }
+
+  initFromState() {
+    this.lfos = (S.lfos || []).map(cfg => new LFO(cfg));
+  }
+
+  syncToState() {
+    S.lfos = this.lfos.map(l => ({
+      id: l.id, waveform: l.waveform, frequency: l.frequency,
+      amplitude: l.amplitude, offset: l.offset, target: l.target, enabled: l.enabled,
+    }));
+  }
+
+  addLFO(cfg) {
+    const lfo = new LFO(cfg);
+    this.lfos.push(lfo);
+    this.syncToState();
+    return lfo;
+  }
+
+  removeLFO(id) {
+    const idx = this.lfos.findIndex(l => l.id === id);
+    if (idx >= 0) { this.lfos.splice(idx, 1); this.syncToState(); }
+  }
+
+  update(dt) {
+    for (const lfo of this.lfos) lfo.update(dt);
+  }
+
+  getWaveformValue(lfo) {
+    const fn = _WAVEFORMS[lfo.waveform] || _WAVEFORMS.sine;
+    return fn(lfo._phase);
+  }
 }
 
 
@@ -2312,6 +2755,113 @@ class WebGPURenderer {
 
 
 
+class PostProcessor {
+  constructor() {
+    this._offscreen = null;
+    this._ctx = null;
+    this._grainCanvas = document.createElement('canvas');
+    this._grainCtx = this._grainCanvas.getContext('2d');
+  }
+
+  render(ctx, w, h) {
+    const p = S.post;
+    if (!p || !p.enabled) return;
+
+    if (p.ca && p.ca.enabled) {
+      this._applyCA(ctx, w, h, p.ca.amount);
+    }
+
+    if (p.vignette && p.vignette.enabled) {
+      this._applyVignette(ctx, w, h, p.vignette.intensity, p.vignette.roundness);
+    }
+
+    if (p.grain && p.grain.enabled) {
+      this._applyGrain(ctx, w, h, p.grain.intensity);
+    }
+
+    if (p.bloom && p.bloom.enabled) {
+      this._applyBloom(ctx, w, h, p.bloom.intensity, p.bloom.threshold, p.bloom.radius);
+    }
+  }
+
+  _ensureOffscreen(w, h) {
+    if (!this._offscreen || this._offscreen.width !== w || this._offscreen.height !== h) {
+      this._offscreen = document.createElement('canvas');
+      this._offscreen.width = w;
+      this._offscreen.height = h;
+      this._ctx = this._offscreen.getContext('2d');
+    }
+  }
+
+  _applyBloom(ctx, w, h, intensity, threshold, radius) {
+    this._ensureOffscreen(w, h);
+    const offCtx = this._ctx;
+    offCtx.drawImage(ctx.canvas, 0, 0);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.filter = `blur(${radius}px)`;
+    ctx.globalAlpha = (intensity || 0.5) * 0.6;
+    ctx.drawImage(this._offscreen, 0, 0);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+  }
+
+  _applyCA(ctx, w, h, amount) {
+    this._ensureOffscreen(w, h);
+    const offCtx = this._ctx;
+    offCtx.drawImage(ctx.canvas, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.filter = 'none';
+
+    const off = amount || 2;
+    ctx.drawImage(this._offscreen, off, 0);
+    ctx.drawImage(this._offscreen, -off, 0);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(this._offscreen, 0, 0);
+    ctx.restore();
+  }
+
+  _applyVignette(ctx, w, h, intensity, roundness) {
+    const r = roundness != null ? roundness : 1;
+    const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.65 * r);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.5, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, `rgba(0,0,0,${intensity != null ? intensity : 0.3})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  _applyGrain(ctx, w, h, intensity) {
+    const grainSize = Math.min(w, 128);
+    this._grainCanvas.width = grainSize;
+    this._grainCanvas.height = grainSize;
+    const gCtx = this._grainCtx;
+    const imgData = gCtx.createImageData(grainSize, grainSize);
+    const d = imgData.data;
+    const iVal = intensity || 0.05;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = (Math.random() * 2 - 1) * iVal * 255;
+      d[i] = d[i + 1] = d[i + 2] = 128 + v;
+      d[i + 3] = Math.abs(v) * 4;
+    }
+    gCtx.putImageData(imgData, 0, 0);
+    ctx.drawImage(this._grainCanvas, 0, 0, grainSize, grainSize, 0, 0, w, h);
+  }
+
+  destroy() {
+    this._offscreen = null;
+    this._ctx = null;
+  }
+}
+
+
+
 class Effect {
   constructor(canvas, ctx) {
     this.canvas     = canvas;
@@ -2790,6 +3340,9 @@ class RecorderManager {
 
 let _effect = null;
 let _recorder = null;
+let _audioManager = null;
+let _lfoManager = null;
+let _postProcessor = null;
 
 function init(effectInstance, recorderInstance) {
   _effect = effectInstance;
@@ -2807,11 +3360,18 @@ function init(effectInstance, recorderInstance) {
   bindBgControls();
   bindBgShape();
   bindFxControls();
+  bindPostControls();
+  bindAudioControls();
+  bindLFOControls();
   bindExport();
   bindRecording();
   bindApplyAndReinit();
   bindPanelDrag();
 }
+
+function wireAudio(audioMgr) { _audioManager = audioMgr; }
+function wireLFO(lfoMgr) { _lfoManager = lfoMgr; _lfoManager.initFromState(); }
+function wirePost(postProc) { _postProcessor = postProc; }
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function bindSlider(id, valId, decimals, onChange) {
@@ -3201,6 +3761,286 @@ function bindRecording() {
   }, 500);
 }
 
+// ── Post-processing controls ──────────────────────────────────────────
+function bindPostControls() {
+  bindToggle('postEnabled', v => { S.post.enabled = v; });
+  bindToggle('postBloom', v => { S.post.bloom.enabled = v; });
+  bindToggle('postCA', v => { S.post.ca.enabled = v; });
+  bindToggle('postVignette', v => { S.post.vignette.enabled = v; });
+  bindToggle('postGrain', v => { S.post.grain.enabled = v; });
+  bindSlider('postBloomIntensity', 'postBloomIntensityVal', 2, v => { S.post.bloom.intensity = v; });
+  bindSlider('postBloomRadius', 'postBloomRadiusVal', 0, v => { S.post.bloom.radius = v; });
+  bindSlider('postCAAmount', 'postCAAmountVal', 1, v => { S.post.ca.amount = v; });
+  bindSlider('postVignetteIntensity', 'postVignetteIntensityVal', 2, v => { S.post.vignette.intensity = v; });
+  bindSlider('postGrainIntensity', 'postGrainIntensityVal', 3, v => { S.post.grain.intensity = v; });
+}
+
+// ── Audio controls ────────────────────────────────────────────────────
+function bindAudioControls() {
+  const micBtn = document.getElementById('audioMicBtn');
+  if (micBtn) {
+    micBtn.addEventListener('click', async () => {
+      if (_audioManager && _audioManager.enabled) {
+        _audioManager.stop();
+        micBtn.textContent = '\u25cf Conectar microfono';
+        micBtn.classList.remove('active', 'danger');
+        const bars = ['audioBassBar','audioMidBar','audioTrebleBar'];
+        bars.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      } else if (_audioManager) {
+        micBtn.textContent = '\u25b6 Conectando...';
+        await _audioManager.start();
+        micBtn.textContent = '\u25cf Desconectar';
+        micBtn.classList.add('active');
+        const bars = ['audioBassBar','audioMidBar','audioTrebleBar'];
+        bars.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+      }
+    });
+  }
+
+  bindSlider('audioSensitivity', 'audioSensitivityVal', 2, v => { S.audio.sensitivity = v; });
+
+  function bindBandMapping(band) {
+    const targetSel = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Target');
+    const minSl = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Min');
+    const maxSl = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'Max');
+    const minVal = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'MinVal');
+    const maxVal = document.getElementById('audio' + band[0].toUpperCase() + band.slice(1) + 'MaxVal');
+
+    const mapping = S.audio.mapping.find(m => m.band === band);
+    if (!mapping) return;
+
+    if (targetSel) {
+      targetSel.value = mapping.target;
+      targetSel.addEventListener('change', e => { mapping.target = e.target.value; });
+    }
+    if (minSl && minVal) {
+      minSl.value = mapping.min;
+      minVal.textContent = mapping.min;
+      minSl.addEventListener('input', () => {
+        const v = parseFloat(minSl.value);
+        mapping.min = v;
+        minVal.textContent = v;
+      });
+    }
+    if (maxSl && maxVal) {
+      maxSl.value = mapping.max;
+      maxVal.textContent = mapping.max;
+      maxSl.addEventListener('input', () => {
+        const v = parseFloat(maxSl.value);
+        mapping.max = v;
+        maxVal.textContent = v;
+      });
+    }
+  }
+
+  bindBandMapping('bass');
+  bindBandMapping('mid');
+  bindBandMapping('treble');
+
+  bus.on('frame', () => {
+    if (!_audioManager || !_audioManager.enabled || !S.audio.enabled) return;
+    const bands = _audioManager.bands;
+    const barIds = [
+      { id: 'audioBassBar', val: bands.bass || 0 },
+      { id: 'audioMidBar', val: bands.mid || 0 },
+      { id: 'audioTrebleBar', val: bands.treble || 0 },
+    ];
+    for (const { id, val } of barIds) {
+      const el = document.getElementById(id);
+      if (el) {
+        const inner = el.querySelector('div');
+        if (inner) inner.style.width = (val * 100) + '%';
+      }
+    }
+  });
+}
+
+// ── LFO controls ──────────────────────────────────────────────────────
+function bindLFOControls() {
+  const addBtn = document.getElementById('lfoAddBtn');
+  const listEl = document.getElementById('lfoList');
+  if (!addBtn || !listEl) return;
+
+  document.querySelector('[data-tab="tab-mod"]')?.addEventListener('click', () => {
+    renderLFOList();
+  });
+
+  const TARGETS = [
+    { value: 'txt.speedMax', label: 'Velocidad max' },
+    { value: 'txt.speedMin', label: 'Velocidad min' },
+    { value: 'txt.boost', label: 'Boost origen' },
+    { value: 'txt.noiseScale', label: 'Escala ruido txt' },
+    { value: 'txt.angleMult', label: 'Angulo txt' },
+    { value: 'txt.lineWidth', label: 'Grosor trail' },
+    { value: 'txt.opacity', label: 'Opacidad txt' },
+    { value: 'txt.shapeSize', label: 'Tamano forma txt' },
+    { value: 'bg.speedMax', label: 'Vel. fondo max' },
+    { value: 'bg.noiseScale', label: 'Escala ruido bg' },
+    { value: 'bg.angleMult', label: 'Angulo bg' },
+    { value: 'bg.lineWidth', label: 'Grosor bg' },
+    { value: 'bg.opacity', label: 'Opacidad bg' },
+    { value: 'fadeAlpha', label: 'Fade' },
+  ];
+
+  function renderLFOList() {
+    if (!_lfoManager) return;
+    listEl.innerHTML = '';
+    _lfoManager.lfos.forEach((lfo, idx) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#1a1a28; border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:8px; margin-bottom:6px;';
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
+
+      const title = document.createElement('span');
+      title.textContent = 'LFO ' + (idx + 1);
+      title.style.cssText = 'font-weight:600; font-size:10px; color:#8ad;';
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none; border:none; color:#d96c6c; cursor:pointer; font-size:12px;';
+      delBtn.addEventListener('click', () => {
+        _lfoManager.removeLFO(lfo.id);
+        S.lfos = _lfoManager.lfos.map(l => ({ ...l }));
+        renderLFOList();
+      });
+
+      header.appendChild(title);
+      header.appendChild(delBtn);
+      card.appendChild(header);
+
+      // Waveform selector
+      const waveRow = document.createElement('div');
+      waveRow.style.cssText = 'display:flex; gap:4px; margin-bottom:4px;';
+      ['sine','square','saw','triangle'].forEach(w => {
+        const btn = document.createElement('button');
+        btn.textContent = w;
+        btn.className = 'ctrl';
+        if (w === lfo.waveform) btn.classList.add('active');
+        btn.style.cssText = 'flex:1; padding:3px 4px; font-size:9px;';
+        btn.addEventListener('click', () => {
+          lfo.waveform = w;
+          _lfoManager.syncToState();
+          renderLFOList();
+        });
+        waveRow.appendChild(btn);
+      });
+      card.appendChild(waveRow);
+
+      // Target selector
+      const targetSel = document.createElement('select');
+      targetSel.innerHTML = TARGETS.map(t =>
+        `<option value="${t.value}"${t.value === lfo.target ? ' selected' : ''}>${t.label}</option>`
+      ).join('');
+      targetSel.style.cssText = 'width:100%; margin-bottom:4px;';
+      targetSel.addEventListener('change', e => {
+        lfo.target = e.target.value;
+        _lfoManager.syncToState();
+      });
+      card.appendChild(targetSel);
+
+      // Enable toggle
+      const toggleRow = document.createElement('div');
+      toggleRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;';
+      const toggleLabel = document.createElement('span');
+      toggleLabel.textContent = 'Activo';
+      toggleLabel.style.cssText = 'font-size:10px; color:rgba(255,255,255,0.6);';
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'toggle' + (lfo.enabled ? ' on' : '');
+      toggleBtn.addEventListener('click', () => {
+        lfo.enabled = !lfo.enabled;
+        toggleBtn.classList.toggle('on');
+        _lfoManager.syncToState();
+      });
+      toggleRow.appendChild(toggleLabel);
+      toggleRow.appendChild(toggleBtn);
+      card.appendChild(toggleRow);
+
+      // Frequency slider
+      card.appendChild(makeSlider('Freq', lfo, 'frequency', 0.05, 10, 0.05, 2));
+      // Amplitude slider
+      card.appendChild(makeSlider('Amp', lfo, 'amplitude', 0, 5, 0.1, 1));
+      // Offset slider
+      card.appendChild(makeSlider('Offset', lfo, 'offset', -5, 5, 0.1, 1));
+
+      // Oscilloscope mini preview
+      const scope = document.createElement('canvas');
+      scope.width = 260; scope.height = 24;
+      scope.style.cssText = 'width:100%; height:24px; border-radius:3px; margin-top:4px; background:#0a0a14;';
+      card.appendChild(scope);
+      lfo._scopeCanvas = scope;
+      lfo._scopeCtx = scope.getContext('2d');
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function makeSlider(label, lfo, key, min, max, step, decimals) {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:4px;';
+    const lbl = document.createElement('label');
+    lbl.textContent = label + ' ';
+    lbl.style.cssText = 'font-size:9.5px; color:rgba(255,255,255,0.5);';
+    const valSpan = document.createElement('span');
+    valSpan.className = 'badge';
+    valSpan.style.cssText = 'font-size:9px; color:#8ad;';
+    valSpan.textContent = lfo[key].toFixed(decimals);
+    lbl.appendChild(valSpan);
+    row.appendChild(lbl);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'row-val';
+    const sl = document.createElement('input');
+    sl.type = 'range';
+    sl.min = min; sl.max = max; sl.step = step;
+    sl.value = lfo[key];
+    sl.style.cssText = 'width:100%;';
+    sl.addEventListener('input', () => {
+      const v = parseFloat(sl.value);
+      lfo[key] = v;
+      valSpan.textContent = v.toFixed(decimals);
+      _lfoManager.syncToState();
+    });
+    wrapper.appendChild(sl);
+    row.appendChild(wrapper);
+    return row;
+  }
+
+  addBtn.addEventListener('click', () => {
+    if (!_lfoManager) return;
+    _lfoManager.addLFO({ target: 'txt.speedMax', frequency: 0.5, amplitude: 2, offset: 2 });
+    renderLFOList();
+  });
+
+  bus.on('frame', () => {
+    if (!_lfoManager) return;
+    for (const lfo of _lfoManager.lfos) {
+      if (!lfo._scopeCtx || !lfo.enabled) continue;
+      const c = lfo._scopeCtx;
+      const w = c.canvas.width, h = c.canvas.height;
+      c.clearRect(0, 0, w, h);
+      c.strokeStyle = '#6c9ed9';
+      c.lineWidth = 1;
+      c.beginPath();
+      for (let x = 0; x < w; x++) {
+        const t = x / w * 2;
+        const fn = lfo._waveformFn || (() => 0);
+        const phase = t + (lfo._phase || 0);
+        let raw = 0;
+        switch (lfo.waveform) {
+          case 'sine': raw = Math.sin(phase * Math.PI * 2); break;
+          case 'square': raw = Math.sin(phase * Math.PI * 2) >= 0 ? 1 : -1; break;
+          case 'saw': raw = ((phase * 2) % 2) - 1; break;
+          case 'triangle': raw = Math.abs(((phase * 2) % 2) - 1) * 2 - 1; break;
+        }
+        const y = h / 2 + raw * (h / 2 - 2);
+        x === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+      }
+      c.stroke();
+    }
+  });
+}
+
 // ── Panel draggable ────────────────────────────────────────────────────
 function bindPanelDrag() {
   if (window.matchMedia('(max-width: 767px)').matches) return;
@@ -3252,8 +4092,14 @@ canvas.height = window.innerHeight;
 
 const effect = new Effect(canvas, ctx);
 const recorder = new RecorderManager(canvas);
+const audioManager = new AudioManager();
+const lfoManager = new LFOManager();
+const postProcessor = new PostProcessor();
 
 init(effect, recorder);
+wireAudio(audioManager);
+wireLFO(lfoManager);
+wirePost(postProcessor);
 
 (function initPointer() {
   let pointerDown = false;
@@ -3340,9 +4186,12 @@ bus.on('state:change', ({ key }) => {
 effect.init().then(() => {
   drawBgGradient();
 
-  let frameCount = 0, lastT = 0, fps = 60;
+  let frameCount = 0, lastT = 0, prevTime = 0, fps = 60;
 
   function animate(t) {
+    const dt = prevTime ? Math.min((t - prevTime) / 1000, 0.05) : 0.016;
+    prevTime = t;
+
     frameCount++;
     if (t - lastT >= 1000) {
       fps = frameCount; frameCount = 0; lastT = t;
@@ -3354,10 +4203,14 @@ effect.init().then(() => {
       if (pbgBadge) pbgBadge.textContent  = effect.bgParticles.length;
     }
 
+    audioManager.update();
+    lfoManager.update(dt);
+
     ctx.fillStyle = cachedBgStyle;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     effect.render(ctx);
+    postProcessor.render(ctx, canvas.width, canvas.height);
     bus.emit('frame', { canvas, ctx });
 
     requestAnimationFrame(animate);
