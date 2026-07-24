@@ -375,7 +375,7 @@ function bindExport() {
     const a = document.createElement('a');
     a.href = url;
     const filename = S.sourceMode === 'text' ? S.text : 'image';
-    a.download = `flow-field-${filename.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'design'}.html`;
+    a.download = `flowfield-${filename.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'design'}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
