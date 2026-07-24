@@ -34,6 +34,23 @@ init(effect, recorder);
   });
 })();
 
+(function initFullscreenOnLandscape() {
+  const IS_MOBILE = window.matchMedia('(max-width: 767px)').matches;
+  if (!IS_MOBILE) return;
+
+  function goFullscreen() {
+    if (screen.orientation && screen.orientation.type.startsWith('landscape') && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    if (screen.orientation && screen.orientation.type.startsWith('portrait') && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  screen.orientation?.addEventListener('change', goFullscreen);
+  goFullscreen();
+})();
+
 function drawBgGradient() {
   if (S.bgType === 'solid') {
     ctx.fillStyle = S.bgColor;
