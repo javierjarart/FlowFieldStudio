@@ -11,7 +11,7 @@ canvas { display: block; position: fixed; top:0; left:0; }
 
 #panel {
   position: fixed; top: 12px; right: 12px;
-  width: 290px; max-height: calc(100vh - 24px);
+  width: 319px; max-height: calc(100vh - 24px);
   background: rgba(12,12,18,0.94);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 14px;
@@ -48,7 +48,7 @@ canvas { display: block; position: fixed; top:0; left:0; }
 .tab-btn {
   flex: 1; padding: 7px 4px; background: none; border: none;
   color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.05em; cursor: pointer; transition: color 0.15s;
+  letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; transition: color 0.15s;
   border-bottom: 2px solid transparent;
 }
 .tab-btn:hover { color: rgba(255,255,255,0.7); }
@@ -98,7 +98,7 @@ input[type="color"] {
   border-radius: 5px; cursor: pointer; padding: 1px; background: none;
 }
 
-.btn-row { display: flex; gap: 6px; margin-top: 4px; }
+.btn-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 button.ctrl {
   flex: 1; padding: 6px 8px; background: #1a1a28; color: #ccc;
   border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
@@ -129,10 +129,10 @@ button.ctrl.success { background: #1e4b3a; border-color: #6cd99a; color: #9be8bd
 hr.divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 10px 0; }
 
 .rec-row {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
 }
 .rec-row .rec-btn {
-  flex: 0 0 auto; padding: 5px 10px; border-radius: 6px;
+  flex: 1; padding: 5px 10px; border-radius: 6px;
   font-size: 10.5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.12);
   transition: all 0.15s; font-weight: 600;
 }
@@ -211,9 +211,9 @@ body:has(#panel.collapsed) #fab { display: flex; }
     <button class="tab-btn active" data-tab="tab-source">Fuente</button>
     <button class="tab-btn" data-tab="tab-txt-p">PARTÍCULAS</button>
     <button class="tab-btn" data-tab="tab-bg-p">P.FONDO</button>
-    <button class="tab-btn" data-tab="tab-fx">FX / REC</button>
-    <button class="tab-btn" data-tab="tab-audio">AUDIO</button>
     <button class="tab-btn" data-tab="tab-mod">MOD</button>
+    <button class="tab-btn" data-tab="tab-fx">FX/POST</button>
+    <button class="tab-btn" data-tab="tab-audio">AUDIO</button>
   </div>
 
   <div id="panel-body">
@@ -365,6 +365,18 @@ body:has(#panel.collapsed) #fab { display: flex; }
           <button class="ctrl success" id="exportHtmlBtn">
             &#x1f4e5; Exportar HTML Standalone
           </button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Grabar video</div>
+        <div class="rec-row">
+          <button class="rec-btn start" id="recStart">&#x25cf; Grabar</button>
+          <button class="rec-btn stop" id="recStop" style="display:none;">&#x25a0; Detener</button>
+          <span class="rec-timer" id="recElapsed">00:00</span>
+        </div>
+        <div class="row" style="font-size:9.5px; color:rgba(255,255,255,0.25);">
+          Exporta a WebM (VP9/VP8). Se reinicia al cambiar origen.
         </div>
       </div>
     </div>
@@ -592,6 +604,20 @@ body:has(#panel.collapsed) #fab { display: flex; }
       </div>
     </div>
 
+    <!-- TAB MOD -->
+    <div class="tab-pane" id="tab-mod">
+      <div class="group">
+        <div class="group-title">LFOs</div>
+        <div id="lfoList"></div>
+        <div class="btn-row">
+          <button class="ctrl" id="lfoAddBtn">+ Agregar LFO</button>
+        </div>
+        <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:4px; display:block;">
+          Cada LFO modula un parametro con forma de onda.
+        </label>
+      </div>
+    </div>
+
     <!-- TAB EFECTOS -->
     <div class="tab-pane" id="tab-fx">
       <div class="group">
@@ -622,18 +648,6 @@ body:has(#panel.collapsed) #fab { display: flex; }
         <div class="btn-row" style="margin-top:4px;">
           <button class="ctrl" data-blend="overlay">Overlay</button>
           <button class="ctrl" data-blend="color-dodge">Dodge</button>
-        </div>
-      </div>
-
-      <div class="group">
-        <div class="group-title">Grabar video</div>
-        <div class="rec-row">
-          <button class="rec-btn start" id="recStart">&#x25cf; Grabar</button>
-          <button class="rec-btn stop" id="recStop" style="display:none;">&#x25a0; Detener</button>
-          <span class="rec-timer" id="recElapsed">00:00</span>
-        </div>
-        <div class="row" style="font-size:9.5px; color:rgba(255,255,255,0.25);">
-          Exporta a WebM (VP9/VP8). Se reinicia al cambiar origen.
         </div>
       </div>
 
@@ -860,20 +874,6 @@ body:has(#panel.collapsed) #fab { display: flex; }
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- TAB MOD -->
-    <div class="tab-pane" id="tab-mod">
-      <div class="group">
-        <div class="group-title">LFOs</div>
-        <div id="lfoList"></div>
-        <div class="btn-row">
-          <button class="ctrl" id="lfoAddBtn">+ Agregar LFO</button>
-        </div>
-        <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:4px; display:block;">
-          Cada LFO modula un parametro con forma de onda.
-        </label>
       </div>
     </div>
 
