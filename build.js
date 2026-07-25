@@ -83,7 +83,7 @@ function build() {
   if (hasInline) {
     html = html.replace(/<script>\(function\(\)\{[\s\S]*?\}\)\(\)\;<\/script>/, () => `<script>${wrapped}</script>`);
   } else {
-    html = html.replace('<script type="module" src="js/main.js">', () => `<script>${wrapped}</script>`);
+    html = html.replace('<script type="module" src="js/main.js"></script>', () => `<script>${wrapped}</script>`);
   }
   fs.writeFileSync(HTML_FILE, html, 'utf8');
   console.log('index.html ensamblado');
