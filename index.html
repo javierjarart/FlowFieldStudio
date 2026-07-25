@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Flow Field · Source Engine</title>
+<title>Flow Field Studio/title>
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #000; overflow: hidden; font-family: 'Segoe UI', system-ui, monospace; }
@@ -203,15 +203,15 @@ body:has(#panel.collapsed) #fab { display: flex; }
 
 <div id="panel">
   <div id="panel-header">
-    <h3>&#x1f300; FLOW FIELD · ENGINE</h3>
+    <h3>&#x1f300; FLOW FIELD STUDIO</h3>
     <button id="togglePanel" title="Colapsar panel">&#x25b2;</button>
   </div>
 
   <div id="tabs">
-    <button class="tab-btn active" data-tab="tab-source">ORÍGEN</button>
+    <button class="tab-btn active" data-tab="tab-source">Fuente</button>
     <button class="tab-btn" data-tab="tab-txt-p">PARTÍCULAS</button>
     <button class="tab-btn" data-tab="tab-bg-p">P.FONDO</button>
-    <button class="tab-btn" data-tab="tab-fx">EFECTOS</button>
+    <button class="tab-btn" data-tab="tab-fx">FX / REC</button>
     <button class="tab-btn" data-tab="tab-audio">AUDIO</button>
     <button class="tab-btn" data-tab="tab-mod">MOD</button>
   </div>
@@ -221,7 +221,7 @@ body:has(#panel.collapsed) #fab { display: flex; }
     <!-- TAB ORÍGEN -->
     <div class="tab-pane active" id="tab-source">
       <div class="group">
-        <div class="group-title">Modo de Origen</div>
+        <div class="group-title">Fuente</div>
         <div class="row">
           <div class="btn-row">
             <button class="ctrl active" id="srcModeText">Texto</button>
@@ -232,7 +232,7 @@ body:has(#panel.collapsed) #fab { display: flex; }
 
       <div id="textSourceControls">
         <div class="group">
-          <div class="group-title">Contenido de Texto</div>
+          <div class="group-title"> </div>
           <div class="row">
             <label>Texto</label>
             <textarea id="textContent" rows="2" style="font-size:13px; font-weight:700; letter-spacing:0.05em;">FLWR</textarea>
@@ -292,7 +292,7 @@ body:has(#panel.collapsed) #fab { display: flex; }
             </div>
           </div>
           <div id="colorGradRow" class="row">
-            <label>Paradas de gradiente</label>
+            <label>Porcentaje de gradiente</label>
             <div style="display:flex; flex-direction:column; gap:5px;">
               <div class="color-pair">
                 <input type="color" id="grad0" value="#F67D31">
@@ -321,9 +321,9 @@ body:has(#panel.collapsed) #fab { display: flex; }
 
       <div id="imageSourceControls" style="display:none;">
         <div class="group">
-          <div class="group-title">Imagen de Origen</div>
+          <div class="group-title">Imagen </div>
           <div class="row">
-            <label>Cargar imagen de origen</label>
+            <label>Cargar imagen </label>
             <input type="file" id="srcImageFile" accept="image/*" style="font-size:10px; color:#aaa; cursor:pointer;"/>
           </div>
           <div class="row">
@@ -342,14 +342,14 @@ body:has(#panel.collapsed) #fab { display: flex; }
       <div class="group">
         <div class="group-title">Forma / M&#xE1;scara</div>
         <div class="row">
-          <label>Sangrado de borde (bleed) <span id="bleedVal" class="badge">0</span> px</label>
+          <label>bleed <span id="bleedVal" class="badge">0</span> px</label>
           <div class="row-val">
             <input type="range" id="bleedRadius" min="0" max="60" step="1" value="0">
           </div>
         </div>
         <div class="row">
           <label style="font-size:9.5px; color:rgba(255,255,255,0.3); margin-top:2px;">
-            Expande la zona activa del origen. &Uacute;til en textos o siluetas PNG transparentes.
+            Expande la zona activa de la fuente. &Uacute;til en textos o siluetas PNG transparentes.
           </label>
         </div>
         <div class="btn-row" style="margin-top:6px;">
@@ -684,7 +684,7 @@ body:has(#panel.collapsed) #fab { display: flex; }
         </div>
         <hr class="divider">
         <div class="toggle-row">
-          <span class="toggle-label">Grano de pelicula</span>
+          <span class="toggle-label">Ruido</span>
           <button class="toggle" id="postGrain"></button>
         </div>
         <div class="row">
