@@ -72,10 +72,8 @@ class TextParticle {
       this.style = idx >= 0 ? idx : 0;
     }
   }
-  draw(ctx, blendMode, s) {
+  draw(ctx, s) {
     if (this.history.length < 2) return;
-    ctx.save();
-    ctx.globalCompositeOperation = blendMode;
     const shape = s.shape;
     if (shape === 'trail') {
       ctx.globalAlpha = s.opacity;
@@ -104,7 +102,6 @@ class TextParticle {
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
-    ctx.restore();
   }
   update(txtBoost, pushActive, distort, ptr) {
     this.timer--;
@@ -163,10 +160,8 @@ class BgParticle {
       this.style = idx >= 0 ? idx : 0;
     }
   }
-  draw(ctx, blendMode, s) {
+  draw(ctx, s) {
     if (this.history.length < 2) return;
-    ctx.save();
-    ctx.globalCompositeOperation = blendMode;
     const shape = s.shape;
     if (shape === 'trail') {
       ctx.globalAlpha = s.opacity;
@@ -195,7 +190,6 @@ class BgParticle {
         drawShape(ctx, shape, this.history[i].x, this.history[i].y, size);
       }
     }
-    ctx.restore();
   }
   update(avoidText, pushActive, distort, ptr) {
     this.timer--;
@@ -261,21 +255,23 @@ export class Canvas2DRenderer {
   respawnBg()   { this.spawnBg(); }
 
   render(ctx) {
-    const txt = S.txt, bg = S.bg, blendMode = S.blendMode;
+    const txt = S.txt, bg = S.bg;
     const distort = S.distortion, ptr = S.pointer;
     const pushActive = distort.enabled && ptr.down;
     const txtBoost = txt.boost, bgAvoidText = bg.avoidText;
 
+    ctx.globalCompositeOperation = S.blendMode;
+
     const bgl = this.bgParticles;
     for (let i = 0; i < bgl.length; i++) {
       const p = bgl[i];
-      p.draw(ctx, blendMode, bg);
+      p.draw(ctx, bg);
       p.update(bgAvoidText, pushActive, distort, ptr);
     }
     const txtl = this.textParticles;
     for (let i = 0; i < txtl.length; i++) {
       const p = txtl[i];
-      p.draw(ctx, blendMode, txt);
+      p.draw(ctx, txt);
       p.update(txtBoost, pushActive, distort, ptr);
     }
   }
