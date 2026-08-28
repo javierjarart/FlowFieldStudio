@@ -8,6 +8,7 @@ Renderiza en tiempo real con WebGPU (o Canvas2D como fallback). Captura de video
 
 [![Live Demo](https://img.shields.io/badge/demo-online-8a2be2?style=for-the-badge&logo=cloudflare&logoColor=white)](https://flowfieldstudio.jaralorescl.workers.dev)
 [![GitHub](https://img.shields.io/badge/source-github-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/javierjarart/FlowFieldStudio)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 <img src="Flowfieldstudio.png" alt="Flow Field Studio screenshot" width="700">
 
@@ -123,3 +124,7 @@ El script `build.js` lee los archivos en orden de dependencia, elimina imports/e
 <div align="center">
   <sub>Flow Field · Source Engine &mdash; 2026</sub>
 </div>
+
+## Licencia
+
+[MIT](LICENSE) &copy; 2026 Javier Jarart
