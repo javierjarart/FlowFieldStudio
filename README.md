@@ -127,4 +127,4 @@ El script `build.js` lee los archivos en orden de dependencia, elimina imports/e
 
 ## Licencia
 
-[MIT](LICENSE) &copy; 2026 Javier Jarart
+[MIT](LICENSE) &copy; 2026 Javier Jara
