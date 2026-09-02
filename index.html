@@ -147,11 +147,20 @@ hr.divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin:
 .rec-row .rec-timer { font-size: 12px; color: #d96c6c; font-variant-numeric: tabular-nums; letter-spacing: 0.05em; min-width: 48px; }
 
 #panel-footer {
+  display: flex; align-items: center;
   padding: 8px 14px;
   border-top: 1px solid rgba(255,255,255,0.07);
   font-size: 9.5px; color: rgba(255,255,255,0.25);
-  text-align: center; flex-shrink: 0;
+  flex-shrink: 0;
 }
+#panel-footer .credit { flex: 1; text-align: left; }
+#panel-footer .hint { flex: 1; text-align: center; }
+#panel-footer .spacer { flex: 1; }
+#panel-footer a {
+  color: rgba(255,255,255,0.35); text-decoration: none;
+  transition: color .2s;
+}
+#panel-footer a:hover { color: #fff; }
 
 #hud {
   position: fixed; bottom: 12px; left: 12px;
@@ -879,7 +888,7 @@ body:has(#panel.collapsed) #fab { display: flex; }
 
   </div>
 
-  <div id="panel-footer">D = grilla debug &nbsp;|&nbsp; &#x21bb; Aplicar para regenerar origen</div>
+  <div id="panel-footer"><span class="credit"><a href="https://instagram.com/javierjarart" target="_blank" rel="noopener noreferrer">@javierjarart</a></span><span class="hint">D = grilla debug &nbsp;|&nbsp; &#x21bb; Aplicar para regenerar origen</span><span class="spacer"></span></div>
 </div>
 
 <button id="fab" title="Abrir panel">&#x2699;</button>
